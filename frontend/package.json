@@ -1,0 +1,11 @@
+{
+  "name": "immunilayer-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ImmuniLayer Protocol frontend - autonomous bug bounty and exploit verification on GenLayer.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node build.js",
+    "serve": "node -e \"const h=require('http'),f=require('fs'),p=require('path'),d=__dirname;h.createServer((q,s)=>{let fp=p.join(d,q.url==='/'?'index.html':q.url.split('?')[0]);f.readFile(fp,(e,b)=>{if(e){s.writeHead(404);return s.end('not found')}const t={'.html':'text/html','.js':'text/javascript','.css':'text/css'}[p.extname(fp)]||'text/plain';s.writeHead(200,{'content-type':t});s.end(b)})}).listen(8080,()=>console.log('http://localhost:8080'))\""
+  }
+}

@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ImmuniLayer - Autonomous Bug Bounty and Exploit Verification</title>
+  <meta name="description" content="Decentralized, AI-adjudicated bug bounty protocol on GenLayer. Real on-chain escrow, multi-validator consensus, and non-custodial value settlement.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Interactive 3D Background Canvas -->
+  <canvas id="bg3dCanvas" class="bg-3d-canvas"></canvas>
+
+  <!-- Subtle Ambient Glow -->
+  <div class="ambient-glow"></div>
+
+  <!-- Header / Navbar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand" onclick="switchTab('dashboard')">
+        <div class="brand-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </div>
+        <span class="brand-name">Immuni<span class="brand-accent">Layer</span></span>
+      </div>
+
+      <nav class="nav-links">
+        <button class="nav-link active" data-tab="dashboard">Overview</button>
+        <button class="nav-link" data-tab="pools">Bounty Pools</button>
+        <button class="nav-link" data-tab="submit">PoC Studio</button>
+        <button class="nav-link" data-tab="disclosures">Disclosures</button>
+        <button class="nav-link" data-tab="mesh">Validator Mesh</button>
+        <button class="nav-link" data-tab="leaderboard">Hall of Fame</button>
+      </nav>
+
+      <div class="nav-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Light / Dark Mode" aria-label="Toggle Theme">
+          <span class="theme-icon" id="themeIcon">Light</span>
+        </button>
+
+        <div class="status-pill" id="networkPill">
+          <span class="status-dot"></span>
+          <span>GenLayer StudioNet</span>
+        </div>
+
+        <button id="connectWalletBtn" class="btn btn-primary" onclick="handleWalletBtnClick()">
+          <span id="walletBtnText">Connect Wallet</span>
+        </button>
+
+        <button id="headerDisconnectBtn" class="btn btn-danger btn-sm hidden" onclick="disconnectWallet()" title="Disconnect Active Wallet">
+          Disconnect
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Container -->
+  <main class="main-content">
+
+    <!-- ==================== TAB 1: OVERVIEW ==================== -->
+    <section id="dashboardSection" class="tab-section active">
+
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="hero-chip">
+          <span class="chip-spark">*</span>
+          <span>Live on GenLayer - Contract: <strong id="heroContractAddr" style="color: var(--cyan); font-family: var(--font-mono);">(loading)</strong></span>
+        </div>
+        <h1 class="hero-title">
+          Autonomous Bug Bounty Protocol with <span class="gradient-text">AI Quorum Consensus</span>
+        </h1>
+        <p class="hero-desc">
+          Whitehats submit reproducible exploit code; GenLayer validators verify execution in sandboxes and release non-custodial payouts from real on-chain escrow in seconds.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" onclick="switchTab('submit')">
+            <span>Open PoC Studio</span>
+          </button>
+          <button class="btn btn-secondary btn-lg" onclick="openCreatePoolModal()">
+            <span>+ Create Bounty Escrow</span>
+          </button>
+          <a href="#howItWorks" class="btn btn-ghost btn-lg">
+            <span>How It Works</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Live Metrics Strip -->
+      <div class="metrics-strip">
+        <div class="metric-item">
+          <span class="m-label">Active Escrow TVL</span>
+          <h2 class="m-value" id="kpiTvl">0 GEN</h2>
+          <span class="m-sub text-emerald">On-chain locked escrow</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-item">
+          <span class="m-label">Bounties Distributed</span>
+          <h2 class="m-value text-emerald" id="kpiPaid">0 GEN</h2>
+          <span class="m-sub text-muted">100% Non-Custodial</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-item">
+          <span class="m-label">Verified Reports</span>
+          <h2 class="m-value" id="kpiExploits">0</h2>
+          <span class="m-sub text-muted">Settled by consensus</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-item">
+          <span class="m-label">StudioNet Quorum</span>
+          <h2 class="m-value" id="kpiQuorum">5 / 5 Synced</h2>
+          <span class="m-sub text-emerald">Optimistic Democracy</span>
+        </div>
+      </div>
+
+      <!-- ==================== GENVM THREAT RADAR ==================== -->
+      <div class="radar-card-section" style="margin-bottom: 36px;">
+        <div class="card-panel radar-panel">
+          <div class="panel-header">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="live-dot-pulse"></span>
+                <h3 class="panel-title" style="font-size: 1.2rem;">GenVM Threat Radar</h3>
+              </div>
+              <p class="panel-subtitle">Visual mapping of threat categories and validator pings</p>
+            </div>
+            <div class="radar-hud-tags">
+              <span class="hud-pill"><strong class="text-cyan">Sweep:</strong> 360 Live</span>
+              <span class="hud-pill"><strong class="text-crimson">Vectors:</strong> <span id="radarBlipCount">6 Mapped</span></span>
+              <span class="hud-pill"><strong class="text-emerald">Status:</strong> StudioNet Quorum</span>
+            </div>
+          </div>
+
+          <div class="radar-display-wrap">
+            <canvas id="threatRadarCanvas" class="threat-radar-canvas" width="800" height="360"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Featured Pools & Live Settlements Feed -->
+      <div class="content-grid" style="margin-bottom: 50px;">
+        <div class="card-panel col-main">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">Active Bounty Vaults</h3>
+              <p class="panel-subtitle">Audited protocols with on-chain deposited escrow</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="switchTab('pools')">View All</button>
+          </div>
+          <div class="pools-list" id="dashboardPoolsContainer">
+            <!-- Rendered by JS from contract reads -->
+          </div>
+        </div>
+
+        <div class="card-panel col-side">
+          <div class="panel-header">
+            <div>
+              <h3 class="panel-title">Live Settlement Stream</h3>
+              <p class="panel-subtitle">On-chain validator verdicts</p>
+            </div>
+            <span class="live-tag">StudioNet Live</span>
+          </div>
+          <div class="feed-list" id="dashboardReportsContainer">
+            <!-- Rendered by JS from contract reads -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== SECTION: HOW IT WORKS ==================== -->
+      <div id="howItWorks" class="home-section">
+        <div class="section-title-wrap">
+          <span class="section-eyebrow">PROTOCOL ARCHITECTURE</span>
+          <h2 class="section-heading">How ImmuniLayer Works</h2>
+          <p class="section-subheading">A zero-human-gatekeeper workflow powered by Python Intelligent Contracts and GenVM.</p>
+        </div>
+
+        <div class="flow-steps-grid">
+          <div class="flow-step-card">
+            <div class="step-num-badge">01</div>
+            <div class="step-icon">[1]</div>
+            <h3>PoC Exploit Submission</h3>
+            <p>Security researchers submit test scripts and attack parameters via PoC Studio directly to the target protocol's on-chain escrow pool.</p>
+          </div>
+
+          <div class="flow-step-card">
+            <div class="step-num-badge">02</div>
+            <div class="step-icon">[2]</div>
+            <h3>Deterministic Sandboxed Check</h3>
+            <p>GenVM spawns an isolated execution sandbox (<code>gl.vm.spawn_sandbox</code>) to structurally verify syntax, assertion violations, and extract ground-truth exploit telemetry.</p>
+          </div>
+
+          <div class="flow-step-card">
+            <div class="step-num-badge">03</div>
+            <div class="step-icon">[3]</div>
+            <h3>AI Quorum & Real Payout</h3>
+            <p>Independent validator nodes execute threat-modeling prompts. Upon reaching <strong>Optimistic Democracy</strong> consensus on severity, escrow settles native GEN to the researcher.</p>
+          </div>
+        </div>
+
+        <div class="about-grid" style="margin-top: 24px;">
+          <div class="card-panel about-card">
+            <div class="about-icon">[lock]</div>
+            <h3>Non-Custodial Escrow Vaults</h3>
+            <p>Protocols lock bounty funds on-chain. Project owners cannot arbitrarily veto valid findings, and whitehats are paid on verified consensus.</p>
+          </div>
+
+          <div class="card-panel about-card">
+            <div class="about-icon">[eq]</div>
+            <h3>Comparative Equivalence</h3>
+            <p>GenLayer validators evaluate severity ratings with custom error-classification comparators (<code>[EXPECTED]</code> vs <code>[TRANSIENT]</code>), eliminating false consensus failures.</p>
+          </div>
+
+          <div class="card-panel about-card">
+            <div class="about-icon">[shield]</div>
+            <h3>On-Chain Appeals</h3>
+            <p>Disputed judgments can be escalated via <code>appeal_report()</code>, recording the dispute permanently on-chain for a secondary review.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== SECTION: FAQ ==================== -->
+      <div id="homeFaq" class="home-section" style="margin-top: 60px;">
+        <div class="section-title-wrap">
+          <span class="section-eyebrow">HELP & KNOWLEDGE BASE</span>
+          <h2 class="section-heading">Frequently Asked Questions</h2>
+          <p class="section-subheading">Everything you need to know about ImmuniLayer, GenLayer, and bounty payouts.</p>
+        </div>
+
+        <div class="faq-accordion" id="faqAccordion">
+          <div class="faq-item active">
+            <button class="faq-question">
+              <span>How does ImmuniLayer verify exploits without human intermediaries?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>ImmuniLayer uses GenLayer Intelligent Contracts written in Python. When an exploit report is submitted, the contract spawns an isolated execution sandbox to verify code structure and assertion logic, then broadcasts the threat model to independent validator nodes that run LLM evaluations and reach quorum consensus under Optimistic Democracy.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What is Optimistic Democracy on GenLayer?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>Optimistic Democracy is GenLayer's consensus mechanism that enables non-deterministic operations (such as AI reasoning and live web fetching) to achieve Byzantine fault tolerance. Multiple validator nodes execute the prompt independently and use substantive equivalence comparators to agree on severity scoring.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How is PoC code executed safely in sandboxes?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>Exploit PoC scripts are parsed and evaluated inside <code>gl.vm.spawn_sandbox()</code> with restricted built-in primitives. This extracts objective metrics (such as assertion counts, lines of code, and target contract interfaces) to provide ground truth that prevents AI hallucination.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How are bounty payouts calculated and settled?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>Protocols deposit native GEN into on-chain escrow pools and configure maximum reward caps for CRITICAL, HIGH, MEDIUM, and LOW tiers. When a vulnerability is verified by consensus, the contract transfers the tiered bounty in native GEN directly to the researcher's wallet. If a report is rejected, no value leaves escrow.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>What happens if an exploit evaluation is disputed?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>ImmuniLayer implements an on-chain appeal path via <code>appeal_report()</code>. Any party can record a substantive appeal justification, which is stored permanently on-chain.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>Which languages and smart contract frameworks are supported?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>ImmuniLayer supports PoCs and target smart contracts written in Solidity (Foundry/Hardhat), Python (py-genlayer), Vyper, Rust, and standard EVM bytecode.</p>
+            </div>
+          </div>
+
+          <div class="faq-item">
+            <button class="faq-question">
+              <span>How can Web3 protocols create a bounty pool?</span>
+              <span class="faq-arrow">v</span>
+            </button>
+            <div class="faq-answer">
+              <p>Project owners connect their wallet and click "+ Create Bounty Escrow". You specify your repository URL, scope, initial escrow deposit, and payout caps. The contract locks the deposited GEN and instantiates an active on-chain vault.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick CTA Banner -->
+      <div class="cta-banner" style="margin-top: 50px;">
+        <div class="cta-content">
+          <h3>Ready to Hunt Zero-Days or Secure Your Protocol?</h3>
+          <p>Test exploit vectors against live escrows or establish a verified on-chain bounty vault.</p>
+        </div>
+        <div class="cta-buttons">
+          <button class="btn btn-primary btn-lg" onclick="switchTab('submit')">Open PoC Studio</button>
+          <button class="btn btn-secondary btn-lg" onclick="openCreatePoolModal()">Create Pool</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== TAB 2: BOUNTY POOLS ==================== -->
+    <section id="poolsSection" class="tab-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Security Bounty Pools</h1>
+          <p class="page-desc">Protocols with on-chain deposited escrow protected by ImmuniLayer</p>
+        </div>
+        <div class="header-controls">
+          <input type="text" id="poolSearchInput" class="form-input search-input" placeholder="Search protocol or repository...">
+          <button class="btn btn-primary" onclick="openCreatePoolModal()">+ Create New Pool</button>
+        </div>
+      </div>
+
+      <div class="pools-grid" id="allPoolsContainer">
+        <!-- Rendered by JS from contract reads -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: POC STUDIO ==================== -->
+    <section id="submitSection" class="tab-section">
+      <div class="studio-container">
+        <div class="card-panel studio-editor-panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">PoC Exploit Studio</h2>
+              <p class="panel-subtitle">Submit reproducible exploit code for multi-validator sandboxed evaluation</p>
+            </div>
+            <div class="preset-selector">
+              <span class="preset-label">Templates:</span>
+              <button type="button" class="preset-btn" onclick="loadPreset('flashloan')">Flashloan Skew</button>
+              <button type="button" class="preset-btn" onclick="loadPreset('replay')">Sig Replay</button>
+              <button type="button" class="preset-btn" onclick="loadPreset('inflation')">ERC4626 Inflation</button>
+              <button type="button" class="preset-btn" onclick="loadPreset('readonly')">Read-Only Reentrancy</button>
+            </div>
+          </div>
+
+          <form id="bountySubmitForm" class="clean-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="targetPoolSelect">Target Bounty Escrow *</label>
+                <select id="targetPoolSelect" class="form-select" required>
+                  <!-- Populated by JS -->
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="vulnTypeSelect">Vulnerability Class *</label>
+                <select id="vulnTypeSelect" class="form-select" required>
+                  <option value="Oracle Price Manipulation / Flashloan">Oracle Price Manipulation / Flashloan</option>
+                  <option value="Cross-Contract Reentrancy & State Desync">Cross-Contract Reentrancy & State Desync</option>
+                  <option value="Signature Replay & Authentication Bypass">Signature Replay & Authentication Bypass</option>
+                  <option value="ERC4626 Vault Share Inflation">ERC4626 Vault Share Inflation</option>
+                  <option value="Access Control & Privilege Escalation">Access Control & Privilege Escalation</option>
+                  <option value="Integer Truncation & Rounding Arbitrage">Integer Truncation & Rounding Arbitrage</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reportTitle">Report Title *</label>
+                <input type="text" id="reportTitle" class="form-input" placeholder="e.g. Critical Flashloan Price Manipulation in Collateral Health Check" required minlength="5">
+              </div>
+              <div class="form-group">
+                <label for="targetComponent">Target Contract / Function *</label>
+                <input type="text" id="targetComponent" class="form-input" placeholder="e.g. VaultRouter.sol #checkHealth()" required>
+              </div>
+            </div>
+
+            <!-- Ground-truth target revision. Validators retrieve the raw source
+                 at this exact repo/commit/path and verify the exploit against it. -->
+            <div class="form-row">
+              <div class="form-group">
+                <label for="targetRepoUrl">Repository URL *</label>
+                <input type="url" id="targetRepoUrl" class="form-input" placeholder="https://github.com/org/repo" required pattern="https?://github\.com/.+/.+">
+              </div>
+              <div class="form-group">
+                <label for="targetCommitHash">Commit Hash *</label>
+                <input type="text" id="targetCommitHash" class="form-input" placeholder="e.g. a1b2c3d4e5f6... (full or short SHA, >= 7 chars)" required minlength="7">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="targetFilePath">Target File Path *</label>
+              <input type="text" id="targetFilePath" class="form-input" placeholder="e.g. contracts/MarginEngine.sol" required>
+              <p class="text-muted" style="font-size: 0.72rem; line-height: 1.4; margin: 4px 0 0;">
+                Validators fetch <code>raw.githubusercontent.com/&lt;owner&gt;/&lt;repo&gt;/&lt;commit&gt;/&lt;path&gt;</code> and confirm the vulnerable logic genuinely exists at this exact revision before any escrow is released.
+              </p>
+            </div>
+
+            <div class="form-group">
+              <label for="impactDescription">Threat Breakdown & Financial Exposure *</label>
+              <textarea id="impactDescription" class="form-textarea" rows="3" placeholder="Explain the prerequisite attack sequence, invariant violations, and capital at risk..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <div class="code-box-header">
+                <div class="code-box-title">
+                  <span class="file-icon">[py]</span>
+                  <span>exploit_poc.py</span>
+                </div>
+                <div class="code-box-meta">
+                  <span class="clean-check">gl.vm.spawn_sandbox syntax verified</span>
+                  <button type="button" class="btn-link" onclick="formatEditorCode()">Clean Code</button>
+                </div>
+              </div>
+
+              <div class="code-editor-wrap">
+                <div class="code-gutter" id="editorGutter"></div>
+                <textarea id="pocCodeInput" class="form-code-editor" rows="13" spellcheck="false" required></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <div class="security-note">
+                <span>Executed in isolated sandboxes across independent GenLayer validators. Non-custodial payout on consensus.</span>
+              </div>
+              <button type="submit" id="submitReportBtn" class="btn btn-primary btn-lg">
+                <span>Run AI Consensus Verification</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="studio-sidebar">
+          <div class="card-panel">
+            <div class="panel-header">
+              <h3 class="panel-title">CVSS v3.1 Matrix</h3>
+              <div class="severity-tag critical" id="cvssScoreBadge">9.8 CRITICAL</div>
+            </div>
+
+            <div class="cvss-inputs">
+              <div class="cvss-row">
+                <span>Attack Vector (AV):</span>
+                <select id="cvssAV" class="form-select-sm" onchange="recalcCVSS()">
+                  <option value="N">Network (Remote 1.0)</option>
+                  <option value="A">Adjacent (0.8)</option>
+                  <option value="L">Local (0.5)</option>
+                </select>
+              </div>
+              <div class="cvss-row">
+                <span>Complexity (AC):</span>
+                <select id="cvssAC" class="form-select-sm" onchange="recalcCVSS()">
+                  <option value="L">Low (Trivial 1.0)</option>
+                  <option value="H">High (Complex 0.4)</option>
+                </select>
+              </div>
+              <div class="cvss-row">
+                <span>Privileges (PR):</span>
+                <select id="cvssPR" class="form-select-sm" onchange="recalcCVSS()">
+                  <option value="N">None (1.0)</option>
+                  <option value="L">Low (0.6)</option>
+                  <option value="H">High (0.2)</option>
+                </select>
+              </div>
+              <div class="cvss-row">
+                <span>Impact (C/I/A):</span>
+                <select id="cvssImpact" class="form-select-sm" onchange="recalcCVSS()">
+                  <option value="H">High (Total Loss 1.0)</option>
+                  <option value="M">Medium (0.6)</option>
+                  <option value="L">Low (0.2)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="vector-display">
+              <code id="cvssVectorOutput">CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H</code>
+            </div>
+          </div>
+
+          <div class="card-panel">
+            <h3 class="panel-title" style="margin-bottom: 12px;">Payout Policy</h3>
+            <div class="policy-list">
+              <div class="policy-item">
+                <div class="policy-head">
+                  <span class="severity-dot critical"></span>
+                  <strong>CRITICAL (9.0 - 10.0)</strong>
+                  <span class="policy-payout text-emerald">Up to Critical Cap</span>
+                </div>
+                <p>Direct loss of user funds, unauthorized token minting, permanent lockup.</p>
+              </div>
+
+              <div class="policy-item">
+                <div class="policy-head">
+                  <span class="severity-dot high"></span>
+                  <strong>HIGH (7.0 - 8.9)</strong>
+                  <span class="policy-payout text-emerald">Up to High Cap</span>
+                </div>
+                <p>Temporary capital lockup, oracle griefing, liquidation manipulation.</p>
+              </div>
+
+              <div class="policy-item">
+                <div class="policy-head">
+                  <span class="severity-dot medium"></span>
+                  <strong>MEDIUM (4.0 - 6.9)</strong>
+                  <span class="policy-payout text-emerald">Up to Medium Cap</span>
+                </div>
+                <p>Fee leakage, precision truncation, gas exhaustion edge cases.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: DISCLOSURES ==================== -->
+    <section id="disclosuresSection" class="tab-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Verified Disclosures</h1>
+          <p class="page-desc">Public on-chain registry of verified vulnerabilities and automated escrow releases</p>
+        </div>
+      </div>
+
+      <div class="disclosures-container" id="fullDisclosuresContainer">
+        <!-- Rendered by JS from contract reads -->
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: VALIDATOR MESH ==================== -->
+    <section id="meshSection" class="tab-section">
+      <div class="mesh-grid">
+        <div class="card-panel mesh-visual-panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">GenLayer StudioNet Validator Mesh</h2>
+              <p class="panel-subtitle">Quorum consensus and execution states (topology visualization)</p>
+            </div>
+            <button class="btn btn-sm btn-ghost" onclick="triggerTestConsensusPing()">Send Consensus Ping</button>
+          </div>
+
+          <div class="topology-wrapper">
+            <canvas id="topologyCanvas" class="topology-canvas" width="700" height="340"></canvas>
+          </div>
+
+          <div class="stepper-horizontal">
+            <div class="step-h done">1. Broadcast</div>
+            <div class="step-h-line done"></div>
+            <div class="step-h done">2. Sandbox Test</div>
+            <div class="step-h-line done"></div>
+            <div class="step-h active">3. AI Evaluation</div>
+            <div class="step-h-line"></div>
+            <div class="step-h">4. Equivalence</div>
+            <div class="step-h-line"></div>
+            <div class="step-h">5. Settlement</div>
+          </div>
+        </div>
+
+        <div class="mesh-side">
+          <div class="card-panel terminal-panel">
+            <div class="terminal-top">
+              <div class="term-dots"><span></span><span></span><span></span></div>
+              <span class="term-title">GenVM StudioNet Consensus Stream</span>
+              <span class="live-dot-text">Live</span>
+            </div>
+            <div class="terminal-content" id="consensusTerminalLogs">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <div class="card-panel nodes-panel">
+            <h3 class="panel-title" style="margin-bottom: 12px;">Active StudioNet Quorum</h3>
+            <div class="nodes-list" id="validatorNodesGrid">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 6: LEADERBOARD ==================== -->
+    <section id="leaderboardSection" class="tab-section">
+      <div class="page-header">
+        <div>
+          <h1 class="page-title">Whitehat Hall of Fame</h1>
+          <p class="page-desc">Researchers ranked by verified vulnerabilities and settled on-chain payouts</p>
+        </div>
+      </div>
+
+      <div class="card-panel" style="padding: 0; overflow-x: auto;">
+        <table class="clean-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Whitehat Researcher</th>
+              <th>Badge</th>
+              <th>Verified Reports</th>
+              <th>Criticals</th>
+              <th>Bounties Earned</th>
+              <th>Source</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardTableBody">
+            <!-- Rendered by JS from contract reads -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== MODALS ==================== -->
+  <div id="createPoolModal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Create Security Bounty Pool</h3>
+        <button class="modal-close" onclick="closeCreatePoolModal()">&times;</button>
+      </div>
+      <form id="createPoolForm" class="clean-form">
+        <div class="form-group">
+          <label>Protocol / Repository Name *</label>
+          <input type="text" id="newPoolName" class="form-input" placeholder="e.g. Nexus Cross-Chain Router" required>
+        </div>
+        <div class="form-group">
+          <label>Repository URL *</label>
+          <input type="url" id="newPoolRepo" class="form-input" placeholder="https://github.com/nexus-core/bridge-router" required>
+        </div>
+        <div class="form-group">
+          <label>Scope & Security Assumptions *</label>
+          <textarea id="newPoolDesc" class="form-textarea" rows="2" placeholder="Scope includes router, verifiers, and liquidity pools..." required></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Initial Escrow Deposit (GEN) *</label>
+            <input type="number" id="newPoolDeposit" class="form-input" value="10" step="any" required min="0">
+          </div>
+          <div class="form-group">
+            <label>Max Critical Bounty (GEN) *</label>
+            <input type="number" id="newPoolCritical" class="form-input" value="5" step="any" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max High Bounty (GEN) *</label>
+            <input type="number" id="newPoolHigh" class="form-input" value="2" step="any" required>
+          </div>
+          <div class="form-group">
+            <label>Max Medium Bounty (GEN) *</label>
+            <input type="number" id="newPoolMedium" class="form-input" value="1" step="any" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Max Low Bounty (GEN) *</label>
+            <input type="number" id="newPoolLow" class="form-input" value="0.2" step="any" required>
+          </div>
+          <div class="form-group" style="display: flex; align-items: flex-end; padding-bottom: 2px;">
+            <p class="text-muted" style="font-size: 0.75rem; line-height: 1.4; margin: 0;">
+              Caps must satisfy CRITICAL &gt;= HIGH &gt;= MEDIUM &gt;= LOW. All bounties are paid in native GEN from the escrow pool.
+            </p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeCreatePoolModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Deploy Vault (locks GEN escrow)</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==================== DISCLOSURE DETAIL MODAL ==================== -->
+  <div id="disclosureDetailModal" class="modal-backdrop hidden">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <div>
+          <span class="severity-tag critical" id="modalVulnSeverityBadge">CRITICAL - Score 98/100</span>
+          <h3 class="modal-title" id="modalVulnTitle" style="margin-top: 6px;">Vulnerability Detail</h3>
+        </div>
+        <button class="modal-close" onclick="closeDisclosureDetailModal()">&times;</button>
+      </div>
+
+      <div class="modal-scroll-area">
+        <div class="meta-strip">
+          <div><span class="text-muted">Target:</span> <strong id="modalVulnComponent">-</strong></div>
+          <div><span class="text-muted">Bounty:</span> <strong class="text-emerald" id="modalVulnPayout">0 GEN</strong></div>
+          <div><span class="text-muted">Researcher:</span> <strong id="modalVulnResearcher">-</strong></div>
+          <div><span class="text-muted">Record:</span> <strong class="text-cyan" id="modalVulnTxHash">-</strong></div>
+        </div>
+
+        <!-- Ground-truth verification: exact consensus tier + verified revision -->
+        <div class="meta-strip" style="margin-top: 10px;">
+          <div>
+            <span class="text-muted">Consensus Tier:</span>
+            <span class="severity-tag critical" id="modalVulnTierBadge" style="margin-left: 4px;">-</span>
+          </div>
+          <div>
+            <span class="text-muted">Source Verified:</span>
+            <strong id="modalVulnSourceVerified">-</strong>
+          </div>
+          <div>
+            <span class="text-muted">Verified Revision:</span>
+            <a id="modalVulnCommitLink" href="#" target="_blank" rel="noopener noreferrer"
+               class="text-cyan" style="font-family: var(--font-mono); font-size: 0.78rem; text-decoration: underline; word-break: break-all;">-</a>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4>Vulnerability Assessment</h4>
+          <p id="modalVulnSummary" class="text-secondary" style="font-size: 0.9rem; line-height: 1.6;">Detailed description...</p>
+        </div>
+
+        <div class="detail-section">
+          <h4>Proof-of-Concept & Recommended Remediation</h4>
+          <div class="diff-grid">
+            <div class="diff-pane vulnerable">
+              <div class="diff-header">Submitted Proof-of-Concept</div>
+              <pre><code id="modalDiffVulnerable"></code></pre>
+            </div>
+            <div class="diff-pane fixed">
+              <div class="diff-header">Recommended Fix</div>
+              <pre><code id="modalDiffFixed"></code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeDisclosureDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== AI CONSENSUS EXECUTION MODAL ==================== -->
+  <div id="executionModal" class="modal-backdrop hidden">
+    <div class="modal-card modal-compact">
+      <div class="exec-head">
+        <div class="exec-spinner"></div>
+        <div>
+          <h3 class="exec-title" id="execTitle">Submitting to GenLayer Consensus</h3>
+          <p class="exec-desc" id="execSubtitle">Broadcasting transaction to validators...</p>
+        </div>
+      </div>
+
+      <div class="stepper-vertical" id="execStepsContainer">
+        <div class="step-v active" id="step1">
+          <span class="step-v-num">1</span>
+          <div>
+            <strong>Transaction Relayed</strong>
+            <p>Signed and broadcast to GenLayer via genlayer-js</p>
+          </div>
+        </div>
+        <div class="step-v" id="step2">
+          <span class="step-v-num">2</span>
+          <div>
+            <strong>Sandbox PoC Verification</strong>
+            <p>gl.vm.spawn_sandbox structural verification</p>
+          </div>
+        </div>
+        <div class="step-v" id="step3">
+          <span class="step-v-num">3</span>
+          <div>
+            <strong>AI Threat Modeling Consensus</strong>
+            <p>Validators execute LLM evaluation and score severity</p>
+          </div>
+        </div>
+        <div class="step-v" id="step4">
+          <span class="step-v-num">4</span>
+          <div>
+            <strong>Real Escrow Settlement</strong>
+            <p>Native GEN transfer to researcher on VERIFIED verdict</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live transaction hash with StudioNet explorer link -->
+      <div class="hidden" id="execTxRow" style="padding: 10px 0 4px; border-top: 1px solid var(--border); margin-top: 12px;">
+        <span class="text-muted" style="font-size: 0.72rem; display: block; margin-bottom: 4px;">Transaction hash:</span>
+        <a id="execTxLink" href="#" target="_blank" rel="noopener noreferrer"
+           style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--cyan); word-break: break-all; text-decoration: underline;">
+        </a>
+      </div>
+
+      <div class="exec-actions hidden" id="execActions">
+        <button class="btn btn-primary btn-full" onclick="closeExecModal()">View Disclosures</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Connect Wallet Modal -->
+  <div id="connectWalletModal" class="modal-backdrop hidden" onclick="if(event.target===this)closeConnectWalletModal()">
+    <div class="modal-card modal-compact">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Connect Web3 Wallet</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Connect a browser wallet to sign GenLayer transactions</p>
+        </div>
+        <button class="modal-close" onclick="closeConnectWalletModal()">&times;</button>
+      </div>
+      <div class="wallet-options-list">
+        <button class="wallet-option-btn" id="connectMetamaskBtn">
+          <div class="wallet-icon-box">W</div>
+          <div class="wallet-info">
+            <span class="wallet-name">MetaMask / Browser Wallet</span>
+            <span class="wallet-subtext">Strict EIP-6963 MetaMask selection, signed through genlayer-js</span>
+          </div>
+          <span class="wallet-badge">EVM</span>
+        </button>
+
+        <button class="wallet-option-btn" id="connectReviewerBtn">
+          <div class="wallet-icon-box">R</div>
+          <div class="wallet-info">
+            <span class="wallet-name">Ephemeral / Reviewer Account</span>
+            <span class="wallet-subtext">One-click genlayer-js account - no extension, no Snap conflicts</span>
+          </div>
+          <span class="wallet-badge">TEST</span>
+        </button>
+      </div>
+      <div class="wallet-modal-footer">
+        <span>Your wallet signs real transactions against the deployed ImmuniLayer contract.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wallet Details & Disconnect Modal -->
+  <div id="walletDetailsModal" class="modal-backdrop hidden" onclick="if(event.target===this)closeWalletDetailsModal()">
+    <div class="modal-card modal-compact">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Connected Account</h3>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">Active GenLayer Web3 Session</p>
+        </div>
+        <button class="modal-close" onclick="closeWalletDetailsModal()">&times;</button>
+      </div>
+
+      <div class="wallet-account-card">
+        <div class="wallet-account-header">
+          <div class="wallet-avatar" id="detailWalletAvatar">IL</div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="wallet-status-row">
+              <span class="status-dot"></span>
+              <span style="font-size: 0.75rem; color: var(--green); font-weight: 600;">GenLayer</span>
+            </div>
+            <div class="wallet-address-display" id="detailWalletAddress">-</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="copyAddressBtn" title="Copy Address">Copy</button>
+        </div>
+
+        <div class="wallet-balance-box">
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Connected Network</span>
+          <div class="wallet-balance-val">
+            <span id="detailWalletBalance">studionet</span>
+          </div>
+        </div>
+
+        <!-- Pull-over-push: claimable bounty credited by consensus -->
+        <div class="wallet-balance-box" style="margin-top: 8px;">
+          <span style="font-size: 0.75rem; color: var(--text-muted);">Claimable Bounty (native GEN)</span>
+          <div class="wallet-balance-val">
+            <span id="claimableAmount" class="text-emerald">0 GEN</span>
+          </div>
+        </div>
+
+        <div class="wallet-details-actions">
+          <button class="btn btn-primary btn-full" id="withdrawBountyBtn" style="margin-bottom: 8px;" disabled>
+            Withdraw Bounty
+          </button>
+          <button class="btn btn-secondary btn-full" id="switchNetworkMetaMaskBtn" style="margin-bottom: 8px;">
+            Switch / Add GenLayer Network in Wallet
+          </button>
+          <button class="btn btn-danger btn-full" id="disconnectWalletBtn">
+            Disconnect Wallet
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-container">
+      <div class="footer-left">
+        <span class="footer-brand">ImmuniLayer Protocol</span>
+        <span class="footer-desc">Autonomous On-Chain Security Protocol on GenLayer.</span>
+        <span class="footer-contract" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--cyan); display: block; margin-top: 4px;">Deployed Contract: <span id="footerContractAddr">(loading)</span></span>
+      </div>
+      <div class="footer-links">
+        <a href="https://docs.genlayer.com" target="_blank" rel="noopener">Documentation</a>
+        <a href="https://studio.genlayer.com" target="_blank" rel="noopener">GenLayer Studio</a>
+        <a href="https://skills.genlayer.com" target="_blank" rel="noopener">Skills</a>
+        <a href="https://github.com/genlayerlabs" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Frontend config, genlayer-js client layer, then the controller -->
+  <script src="config.js"></script>
+  <script type="module" src="genlayer-client.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
