@@ -1,6 +1,9 @@
-# { "Depends": "py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6" }
+# v0.3.0
+# { "Depends": "py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng" }
 
-from genlayer import *
+import genlayer as gl
+from genlayer.types import *
+from genlayer.storage import TreeMap, DynArray
 import json
 import re
 
@@ -85,7 +88,7 @@ class _Payable:
         pass
 
 
-class ImmuniLayerBugBounty(gl.Contract):
+class ImmuniLayerBugBounty(gl.contract.Contract):
     """
     ImmuniLayer Protocol - Autonomous Bug Bounty and Exploit Verification
 
@@ -195,7 +198,7 @@ class ImmuniLayerBugBounty(gl.Contract):
 
         self.pool_count = u32(self.pool_count + u32(1))
         pool_id = self.pool_count
-        owner_addr = str(gl.message.sender_address)
+        owner_addr = gl.message.sender_address.as_hex
 
         pool_data = {
             "id": int(pool_id),
@@ -263,7 +266,7 @@ class ImmuniLayerBugBounty(gl.Contract):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Pool ID {pool_id} does not exist")
 
         pool = json.loads(self.pools[pool_id])
-        caller = str(gl.message.sender_address)
+        caller = gl.message.sender_address.as_hex
         if caller != pool["owner"]:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Only the pool owner can withdraw escrow")
 
@@ -365,11 +368,22 @@ class ImmuniLayerBugBounty(gl.Contract):
             raise gl.vm.UserError(f"{ERROR_EXPECTED} A target file path within the repository is required")
 
         pool = json.loads(self.pools[pool_id])
+
+        # Repository binding: every report must target the exact repository the
+        # pool was registered for. A mismatched URL is rejected deterministically
+        # before any LLM evaluation or escrow movement.
+        pool_repo = pool.get("repo_url", "").strip().rstrip("/")
+        if repo_url.rstrip("/") != pool_repo:
+            raise gl.vm.UserError(
+                f"{ERROR_EXPECTED} ERR_MISMATCHED_REPOSITORY: "
+                f"report targets {repo_url} but pool is registered for {pool_repo}"
+            )
+
         pool_balance = int(pool["balance"])
         if not pool.get("is_active", True) or pool_balance <= 0:
             raise gl.vm.UserError(f"{ERROR_EXPECTED} Target bounty pool has zero active balance")
 
-        researcher_addr = str(gl.message.sender_address)
+        researcher_addr = gl.message.sender_address.as_hex
 
         # ---------------------------------------------------------------------
         # Replay / double-claim protection (deterministic state).
@@ -574,7 +588,7 @@ class ImmuniLayerBugBounty(gl.Contract):
 
             return True
 
-        ai_assessment = gl.vm.run_nondet_unsafe(evaluate_security_report, validator_comparator)
+        ai_assessment = gl.vm.run_nondet(evaluate_security_report, validator_comparator)
 
         # ---------------------------------------------------------------------
         # Exact tier -> deterministic payout (percentage of the escrow cap).
@@ -689,7 +703,7 @@ class ImmuniLayerBugBounty(gl.Contract):
             "total_deposited": str(int(self.total_deposited)),
             "locked_escrow": str(int(self.locked_escrow)),
             "contract_balance": str(int(self.balance)),
-            "protocol_owner": str(self.protocol_owner)
+            "protocol_owner": self.protocol_owner.as_hex
         }
         return json.dumps(stats)
 

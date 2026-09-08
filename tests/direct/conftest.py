@@ -69,9 +69,22 @@ def mock_source(direct_vm, body: str, status: int = 200):
     direct_vm.mock_web(RAW_GITHUB_URL_PATTERN, {"status": status, "body": body})
 
 
+def _llm_json(obj):
+    """Encode a mocked LLM verdict as UTF-8 bytes.
+
+    The genlayer-test 0.30.x direct loader pre-parses *string* LLM mocks into a
+    dict before handing them to the runner, but the v0.6.0 runner's
+    exec_prompt(response_format="json") decoder expects raw text/bytes to
+    json.loads itself (a str mock triggers "JSON result is not text"). Returning
+    bytes bypasses the loader's auto-parse and faithfully simulates an LLM
+    returning raw JSON text.
+    """
+    return json.dumps(obj).encode("utf-8")
+
+
 def critical_ai_verdict():
     """Return a JSON-string mocking a CRITICAL, source-verified verdict."""
-    return json.dumps({
+    return _llm_json({
         "source_verified": True,
         "tier": "CRITICAL",
         "score": 97,
@@ -83,7 +96,7 @@ def critical_ai_verdict():
 
 
 def high_ai_verdict():
-    return json.dumps({
+    return _llm_json({
         "source_verified": True,
         "tier": "HIGH",
         "score": 82,
@@ -95,7 +108,7 @@ def high_ai_verdict():
 
 
 def medium_ai_verdict():
-    return json.dumps({
+    return _llm_json({
         "source_verified": True,
         "tier": "MEDIUM",
         "score": 58,
@@ -107,7 +120,7 @@ def medium_ai_verdict():
 
 
 def low_ai_verdict():
-    return json.dumps({
+    return _llm_json({
         "source_verified": True,
         "tier": "LOW",
         "score": 24,
@@ -120,7 +133,7 @@ def low_ai_verdict():
 
 def rejected_ai_verdict():
     """Report is well-formed but the exploit is not reproducible / spam."""
-    return json.dumps({
+    return _llm_json({
         "source_verified": True,
         "tier": "REJECTED",
         "score": 3,
@@ -133,7 +146,7 @@ def rejected_ai_verdict():
 
 def source_mismatch_verdict():
     """The claimed vulnerable function is absent from the retrieved source."""
-    return json.dumps({
+    return _llm_json({
         "source_verified": False,
         "tier": "REJECTED",
         "score": 2,

@@ -8,6 +8,8 @@
  * ).
  *
  * Available chain names: "studionet", "localnet", "testnetAsimov", "testnetBradbury".
+ * The "studionet" chain is pinned to the studio-next endpoints in
+ * genlayer-client.js (RPC https://studio-next.genlayer.com/api, Chain ID 61999).
  */
 (function () {
   var storedAddress = null;
@@ -18,8 +20,8 @@
   }
 
   window.IMMUNI_CONFIG = {
-    // Deployed ImmuniLayer contract address on the target GenLayer network.
-    contractAddress: storedAddress || "0xD5e2b1AE71cd4a57b7b095d467EcF282030Da42e",
+    // Deployed ImmuniLayer contract address on GenLayer StudioNet (studio-next).
+    contractAddress: storedAddress || "0x7cA196D3583173993b48375b9F4B1a6DfA3dF896",
     // Target GenLayer network for both reads and writes.
     chainName: "studionet",
     // Native GEN uses 18 decimals (1 GEN = 10^18 wei).

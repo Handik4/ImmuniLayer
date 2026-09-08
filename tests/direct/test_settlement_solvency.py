@@ -235,7 +235,9 @@ def test_malformed_llm_output_reverts_llm_error(
     contract, pool_id = _deploy_pool(direct_vm, direct_deploy, direct_bob)
     mock_source(direct_vm, VULNERABLE_TARGET_SOURCE)
     # A JSON array (not an object) is a well-formed but non-conforming response.
-    direct_vm.mock_llm(AI_PROMPT_PATTERN, "[1, 2, 3]")
+    # Bytes (not str) so the direct loader passes it through as raw LLM text for
+    # the runner to json.loads, rather than pre-parsing it into a Python list.
+    direct_vm.mock_llm(AI_PROMPT_PATTERN, b"[1, 2, 3]")
     direct_vm.sender = direct_alice
     direct_vm.value = 0
     with direct_vm.expect_revert("[LLM_ERROR]"):

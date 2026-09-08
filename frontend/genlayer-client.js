@@ -6,7 +6,7 @@
  * dashboard comes from REAL reads and writes against the deployed intelligent
  * contract. No mock data is produced here.
  *
- * Network: GenLayer StudioNet, Chain ID 61999 (0xF21F).
+ * Network: GenLayer StudioNet (studio-next), Chain ID 61999 (0xF21F).
  * Read client: public RPC, no wallet needed.
  * Write client: created on wallet connect; signs every transaction through the
  *   selected EIP-1193 provider (strict EIP-6963 MetaMask selection) OR through
@@ -22,16 +22,22 @@ import { TransactionStatus } from "https://esm.sh/genlayer-js/types";
 // ---------------------------------------------------------------------------
 const STUDIONET_CHAIN_ID_HEX = "0xF21F"; // 61999 decimal
 
+// Official studio-next endpoints (Chain ID 61999).
+const STUDIO_BASE = "https://studio-next.genlayer.com";
+const STUDIO_RPC_URL = STUDIO_BASE + "/api";
+// Block explorer is served from a distinct host.
+const EXPLORER_BASE = "https://explorer-studio.genlayer.com";
+
 const STUDIONET_PARAMS = {
   chainId: STUDIONET_CHAIN_ID_HEX,
   chainName: "GenLayer StudioNet",
   nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
-  rpcUrls: ["https://studio.genlayer.com/api"],
-  blockExplorerUrls: ["https://studio.genlayer.com"]
+  rpcUrls: [STUDIO_RPC_URL],
+  blockExplorerUrls: [EXPLORER_BASE]
 };
 
 // StudioNet transaction explorer base URL (append tx hash to open detail page).
-const EXPLORER_TX_BASE = "https://studio.genlayer.com/tx/";
+const EXPLORER_TX_BASE = EXPLORER_BASE + "/tx/";
 
 // ---------------------------------------------------------------------------
 // EIP-6963 provider discovery
@@ -102,7 +108,24 @@ const CHAINS = {
 
 function activeChain() {
   const name = (window.IMMUNI_CONFIG && window.IMMUNI_CONFIG.chainName) || "studionet";
-  return CHAINS[name] || studionet;
+  const base = CHAINS[name] || studionet;
+  // Pin the RPC/explorer to the official studio-next endpoints for studionet,
+  // overriding whatever default the bundled genlayer-js chain ships with.
+  if (name === "studionet") {
+    return {
+      ...base,
+      rpcUrls: {
+        ...(base.rpcUrls || {}),
+        default: { http: [STUDIO_RPC_URL] },
+        public: { http: [STUDIO_RPC_URL] }
+      },
+      blockExplorers: {
+        ...(base.blockExplorers || {}),
+        default: { name: "GenLayer Studio Explorer", url: EXPLORER_BASE }
+      }
+    };
+  }
+  return base;
 }
 
 function contractAddress() {
@@ -150,6 +173,62 @@ let readClient = null;
 let writeClient = null;
 let connectedAccount = null;
 let connectionMode = null; // "wallet" | "reviewer"
+
+// ---------------------------------------------------------------------------
+// Consensus v0.6 receipt evaluation
+// ---------------------------------------------------------------------------
+// Under GenLayer Consensus v0.6 a transaction reaching ACCEPTED or FINALIZED
+// status only means the validator quorum agreed on an OUTCOME - and that
+// outcome can be a revert. A call is only truly successful when the leader
+// receipt's execution_result is FINISHED_WITH_RETURN. We therefore gate success
+// on BOTH the transaction status AND the execution result, and surface the
+// underlying revert reason otherwise (never a false "success").
+const SUCCESS_STATUSES = ["ACCEPTED", "FINALIZED"];
+const SUCCESS_EXECUTION = "FINISHED_WITH_RETURN";
+
+function _upper(v) {
+  return typeof v === "string" ? v.toUpperCase() : v;
+}
+
+function receiptStatusName(receipt) {
+  if (!receipt) return undefined;
+  return _upper(receipt.statusName || receipt.status_name || receipt.status);
+}
+
+function leaderReceipt(receipt) {
+  const cd = receipt && (receipt.consensusData || receipt.consensus_data);
+  let lr = cd && (cd.leaderReceipt || cd.leader_receipt);
+  if (Array.isArray(lr)) lr = lr[0];
+  return lr || undefined;
+}
+
+function receiptExecutionResult(receipt) {
+  if (!receipt) return undefined;
+  const lr = leaderReceipt(receipt);
+  return _upper(
+    (lr && (lr.executionResult || lr.execution_result)) ||
+    receipt.executionResult ||
+    receipt.execution_result
+  );
+}
+
+/** Extract a human-readable revert reason from a reverted GenVM receipt. */
+function extractRevertReason(receipt) {
+  const lr = leaderReceipt(receipt);
+  const gv = lr && (lr.genvmResult || lr.genvm_result);
+  const candidates = [
+    lr && lr.result && lr.result.payload,
+    lr && lr.result && lr.result.status,
+    gv && gv.stderr,
+    receipt && receipt.result && receipt.result.payload,
+    receiptExecutionResult(receipt) &&
+      ("execution_result=" + receiptExecutionResult(receipt))
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim().length > 0) return c.trim();
+  }
+  return "the quorum agreed on a non-successful outcome (no return value)";
+}
 
 // ---------------------------------------------------------------------------
 // Public API exposed on window.ImmuniChain
@@ -290,18 +369,54 @@ const ImmuniChain = {
   },
 
   /**
-   * Wait for a transaction receipt. Defaults to ACCEPTED status, which is
-   * sufficient to confirm execution results and settled state. Requests the
-   * full transaction so callers can read the decoded return value directly from
-   * the receipt (race-free readback - no shared-counter pre-reads).
+   * Consensus v0.6 success predicate. Returns true only when the transaction
+   * reached ACCEPTED/FINALIZED AND the leader execution finished with a return
+   * value. Prefers the SDK's own client.isSuccessful() when available.
+   */
+  isSuccessful(receipt) {
+    const client = writeClient || this.getReadClient();
+    if (client && typeof client.isSuccessful === "function") {
+      try {
+        return !!client.isSuccessful(receipt);
+      } catch (e) {
+        // Fall through to the manual check below.
+      }
+    }
+    const statusOk = SUCCESS_STATUSES.includes(receiptStatusName(receipt));
+    const execOk = receiptExecutionResult(receipt) === SUCCESS_EXECUTION;
+    return statusOk && execOk;
+  },
+
+  /** Expose the revert reason extractor for callers that catch a failure. */
+  revertReason(receipt) {
+    return extractRevertReason(receipt);
+  },
+
+  /**
+   * Wait for a transaction receipt and assert real success under Consensus
+   * v0.6. Reaching ACCEPTED/FINALIZED status is NOT sufficient - the quorum may
+   * have agreed on a revert. We therefore require execution_result to be
+   * FINISHED_WITH_RETURN (or the SDK's isSuccessful) and otherwise throw a
+   * descriptive revert error so callers surface the real reason instead of a
+   * false success. Requests the full transaction so callers can read the
+   * decoded return value directly from the receipt (race-free readback).
    */
   async waitReceipt(hash, status) {
     const client = writeClient || this.getReadClient();
-    return await client.waitForTransactionReceipt({
+    const receipt = await client.waitForTransactionReceipt({
       hash: hash,
       status: status || TransactionStatus.ACCEPTED,
       fullTransaction: true
     });
+    if (!this.isSuccessful(receipt)) {
+      const err = new Error(
+        "Transaction reverted on-chain: " + extractRevertReason(receipt)
+      );
+      err.reverted = true;
+      err.receipt = receipt;
+      throw err;
+    }
+    return receipt;
   },
 
   /**

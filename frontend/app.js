@@ -118,7 +118,7 @@ function explorerTxUrl(hash) {
   if (window.ImmuniChain && window.ImmuniChain.explorerTxUrl) {
     return window.ImmuniChain.explorerTxUrl(hash);
   }
-  return "https://studio.genlayer.com/tx/" + (hash || "");
+  return "https://explorer-studio.genlayer.com/tx/" + (hash || "");
 }
 
 // ============================================================================
@@ -1318,7 +1318,7 @@ async function handleSubmitVulnerability(e) {
 
     const receipt = await chain.waitReceipt(txHash);
     setExecStep(3, true);
-    logConsensus("[CONSENSUS] Transaction accepted by consensus. Reading settled verdict...");
+    logConsensus("[CONSENSUS] Quorum reached and leader execution FINISHED_WITH_RETURN. Reading settled verdict...");
 
     await refreshFromChain();
     await refreshClaimable();
