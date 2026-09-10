@@ -77,3 +77,4 @@ seed_phrase.txt
 
 # Node / frontend build
 node_modules/
+.vercel

@@ -6,7 +6,7 @@
  * dashboard comes from REAL reads and writes against the deployed intelligent
  * contract. No mock data is produced here.
  *
- * Network: GenLayer StudioNet (studio-next), Chain ID 61999 (0xF21F).
+ * Network: GenLayer Studio Devnet (studio-dev), Chain ID 61997 (0xF22D).
  * Read client: public RPC, no wallet needed.
  * Write client: created on wallet connect; signs every transaction through the
  *   selected EIP-1193 provider (strict EIP-6963 MetaMask selection) OR through
@@ -18,19 +18,20 @@ import { studionet, localnet, testnetAsimov, testnetBradbury } from "https://esm
 import { TransactionStatus } from "https://esm.sh/genlayer-js/types";
 
 // ---------------------------------------------------------------------------
-// StudioNet network parameters (Chain ID 61999)
+// Studio Devnet network parameters (Chain ID 61997)
 // ---------------------------------------------------------------------------
-const STUDIONET_CHAIN_ID_HEX = "0xF21F"; // 61999 decimal
+const STUDIONET_CHAIN_ID_HEX = "0xF22D"; // 61997 decimal
+const STUDIONET_CHAIN_ID_DEC = 61997;
 
-// Official studio-next endpoints (Chain ID 61999).
-const STUDIO_BASE = "https://studio-next.genlayer.com";
+// Official studio-dev endpoints (Chain ID 61997).
+const STUDIO_BASE = "https://studio-dev.genlayer.com";
 const STUDIO_RPC_URL = STUDIO_BASE + "/api";
 // Block explorer is served from a distinct host.
-const EXPLORER_BASE = "https://explorer-studio.genlayer.com";
+const EXPLORER_BASE = "https://explorer-studio-dev.genlayer.com";
 
 const STUDIONET_PARAMS = {
   chainId: STUDIONET_CHAIN_ID_HEX,
-  chainName: "GenLayer StudioNet",
+  chainName: "GenLayer Studio Devnet",
   nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
   rpcUrls: [STUDIO_RPC_URL],
   blockExplorerUrls: [EXPLORER_BASE]
@@ -109,11 +110,13 @@ const CHAINS = {
 function activeChain() {
   const name = (window.IMMUNI_CONFIG && window.IMMUNI_CONFIG.chainName) || "studionet";
   const base = CHAINS[name] || studionet;
-  // Pin the RPC/explorer to the official studio-next endpoints for studionet,
-  // overriding whatever default the bundled genlayer-js chain ships with.
+  // Pin the RPC/explorer/chainId to the official studio-dev endpoints for
+  // studionet, overriding whatever default the bundled genlayer-js chain ships
+  // with (the bundled studionet still targets studio-next / 61999).
   if (name === "studionet") {
     return {
       ...base,
+      id: STUDIONET_CHAIN_ID_DEC,
       rpcUrls: {
         ...(base.rpcUrls || {}),
         default: { http: [STUDIO_RPC_URL] },
@@ -121,7 +124,7 @@ function activeChain() {
       },
       blockExplorers: {
         ...(base.blockExplorers || {}),
-        default: { name: "GenLayer Studio Explorer", url: EXPLORER_BASE }
+        default: { name: "GenLayer Studio Devnet Explorer", url: EXPLORER_BASE }
       }
     };
   }
@@ -133,7 +136,7 @@ function contractAddress() {
 }
 
 /**
- * Ensure the selected provider is on GenLayer StudioNet (Chain ID 61999).
+ * Ensure the selected provider is on GenLayer Studio Devnet (Chain ID 61997).
  * Every wallet RPC call is wrapped so a Snap-related -32601 (or a user
  * rejection) never aborts the connect flow.
  */
@@ -276,7 +279,7 @@ const ImmuniChain = {
 
   /**
    * Connect a browser wallet via strict EIP-6963 MetaMask selection and switch
-   * it to GenLayer StudioNet (Chain ID 61999). Returns the connected account.
+   * it to GenLayer Studio Devnet (Chain ID 61997). Returns the connected account.
    */
   async connect() {
     const provider = selectInjectedProvider();

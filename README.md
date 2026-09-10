@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![GenLayer](https://img.shields.io/badge/GenLayer-StudioNet%20(studio--next)-00E5FF?style=for-the-badge&logo=ethereum&logoColor=black)
+![GenLayer](https://img.shields.io/badge/GenLayer-Studio%20Devnet%20(studio--dev)-00E5FF?style=for-the-badge&logo=ethereum&logoColor=black)
 ![Runner](https://img.shields.io/badge/Runner-v0.3.0-7C4DFF?style=for-the-badge)
 ![Consensus](https://img.shields.io/badge/Consensus-v0.6-00E676?style=for-the-badge)
 ![Tests](https://img.shields.io/badge/pytest-67%2F67%20passing-00E676?style=for-the-badge)
@@ -51,11 +51,11 @@ All disclosures, verdicts, settlements, and telemetry are permanently recorded o
 
 | Parameter | Value |
 | :--- | :--- |
-| **Contract Address** | `0x7cA196D3583173993b48375b9F4B1a6DfA3dF896` |
-| **Explorer** | https://explorer-studio.genlayer.com/address/0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 |
-| **Network** | GenLayer StudioNet (`studio-next`) |
-| **Chain ID** | `61999` |
-| **RPC URL** | `https://studio-next.genlayer.com/api` |
+| **Contract Address** | `0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f` |
+| **Explorer** | https://explorer-studio-dev.genlayer.com/address/0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f |
+| **Network** | GenLayer Studio Devnet (`studio-dev`) |
+| **Chain ID** | `61997` |
+| **RPC URL** | `https://studio-dev.genlayer.com/api` |
 | **Runner** | `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng` (v0.3.0) |
 | **Contract Class** | `ImmuniLayerBugBounty` — 13 methods (6 view, 7 write) |
 
@@ -215,13 +215,13 @@ class ImmuniLayerBugBounty(gl.contract.Contract):
 
 ## Developer & Researcher Tutorial
 
-All CLI examples target studio-next (`--rpc https://studio-next.genlayer.com/api`). Monetary amounts are in wei (1 GEN = 10¹⁸ wei).
+All CLI examples target studio-dev (`--rpc https://studio-dev.genlayer.com/api`). Monetary amounts are in wei (1 GEN = 10¹⁸ wei).
 
 **1. Create a bounty pool** (payable; `--value` funds the escrow; caps must follow CRITICAL ≥ HIGH ≥ MEDIUM ≥ LOW):
 
 ```bash
-genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 create_bounty_pool \
-  --rpc https://studio-next.genlayer.com/api \
+genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f create_bounty_pool \
+  --rpc https://studio-dev.genlayer.com/api \
   --value 10000000000000000000 \
   --args "Nexus Cross-Chain Bridge" \
          "https://github.com/nexus-core/bridge" \
@@ -232,8 +232,8 @@ genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 create_bounty_pool \
 **2. Submit a vulnerability** bound to an exact target revision (the `repo_url` must match the pool's registered repository, or the call reverts with `ERR_MISMATCHED_REPOSITORY`):
 
 ```bash
-genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 submit_vulnerability \
-  --rpc https://studio-next.genlayer.com/api \
+genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f submit_vulnerability \
+  --rpc https://studio-dev.genlayer.com/api \
   --args 1 \
          "Flashloan Oracle Manipulation in PriceRouter" \
          "Oracle Manipulation / Flashloan" \
@@ -248,22 +248,22 @@ genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 submit_vulnerability \
 **3. Query protocol state and disclosures:**
 
 ```bash
-genlayer call 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 get_protocol_stats --rpc https://studio-next.genlayer.com/api
-genlayer call 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 get_all_pools     --rpc https://studio-next.genlayer.com/api
-genlayer call 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 get_report --args 1 --rpc https://studio-next.genlayer.com/api
+genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_protocol_stats --rpc https://studio-dev.genlayer.com/api
+genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_all_pools     --rpc https://studio-dev.genlayer.com/api
+genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_report --args 1 --rpc https://studio-dev.genlayer.com/api
 ```
 
 **4. Withdraw a settled bounty** (beneficiary pull):
 
 ```bash
-genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 withdraw --rpc https://studio-next.genlayer.com/api
+genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f withdraw --rpc https://studio-dev.genlayer.com/api
 ```
 
 **5. Appeal a contested verdict:**
 
 ```bash
-genlayer write 0x7cA196D3583173993b48375b9F4B1a6DfA3dF896 appeal_report \
-  --rpc https://studio-next.genlayer.com/api \
+genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f appeal_report \
+  --rpc https://studio-dev.genlayer.com/api \
   --args 1 "Call trace shows the invariant bypass on line 142 of PriceRouter.sol."
 ```
 
@@ -335,7 +335,7 @@ npm run build          # assembles dist/ (0-dependency static build)
 npm run serve          # serves on http://localhost:8080
 ```
 
-The dashboard performs **real** contract reads and writes through `genlayer-js` against the deployed contract on studio-next — pools, disclosures, verdicts, and payouts are decoded from on-chain state, not simulated.
+The dashboard performs **real** contract reads and writes through `genlayer-js` against the deployed contract on studio-dev — pools, disclosures, verdicts, and payouts are decoded from on-chain state, not simulated.
 
 ---
 
