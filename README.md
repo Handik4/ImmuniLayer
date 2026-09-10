@@ -65,7 +65,7 @@ The frontend reads the address from `frontend/config.js` and can be overridden a
 
 ## Architecture
 
-ImmuniLayer is a **decentralized multi-LLM consensus protocol**. There is **no sandbox runner, no Docker container, and no isolated container execution** anywhere in the design — evaluation is performed by the GenLayer validator quorum running natively on GenVM under the Equivalence Principle.
+ImmuniLayer is a **decentralized multi-LLM consensus protocol**. There is **no code runner, no Docker container, and no isolated code execution** anywhere in the design — evaluation is performed by the GenLayer validator quorum, which reaches multi-LLM equivalence consensus by scoring static vulnerability metadata and CVSS vectors against authoritative repository telemetry, running natively on GenVM under the Equivalence Principle.
 
 ```mermaid
 sequenceDiagram

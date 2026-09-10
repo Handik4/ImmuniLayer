@@ -1087,7 +1087,7 @@ const PRESETS = {
     vault.deposit_collateral(amount=loan_amount)
     stolen_funds = vault.borrow_max_stablecoins()
 
-    # 4. Invariant Verification in Sandbox
+    # 4. Invariant Verification
     assert stolen_funds >= 3_500_000 * 10**18, "Exploit failed to extract target capital"
     print("Successfully drained protocol escrow")`
   },
@@ -1313,7 +1313,7 @@ async function handleSubmitVulnerability(e) {
     logConsensus(`[TX_HASH] ${txHash}`);
     logConsensus(`[EXPLORER] ${explorerTxUrl(txHash)}`);
 
-    logConsensus("[CONSENSUS] Awaiting GenLayer validator consensus (sandbox check + AI threat model)...");
+    logConsensus("[CONSENSUS] Awaiting GenLayer validator consensus (static metadata & vector evaluation + AI threat model)...");
     setExecStep(2, true);
 
     const receipt = await chain.waitReceipt(txHash);

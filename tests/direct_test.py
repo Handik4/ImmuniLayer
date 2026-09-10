@@ -16,15 +16,6 @@ class MockGenLayerVM:
     def __init__(self):
         self.sender_account = MockAddress()
 
-    def spawn_sandbox(self, fn):
-        class ResultWrapper:
-            def __init__(self, val):
-                self.val = val
-        return ResultWrapper(fn())
-
-    def unpack_result(self, res):
-        return res.val
-
 
 class TestAegisBugBountyLogic(unittest.TestCase):
     def setUp(self):

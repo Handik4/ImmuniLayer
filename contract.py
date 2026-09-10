@@ -92,12 +92,15 @@ class ImmuniLayerBugBounty(gl.contract.Contract):
     """
     ImmuniLayer Protocol - Autonomous Bug Bounty and Exploit Verification
 
-    A decentralized security bounty protocol on GenLayer.
+    Decentralized autonomous bug bounty protocol utilizing GenVM multi-LLM
+    equivalence consensus to evaluate static vulnerability metadata and CVSS
+    vectors against authoritative repository telemetry.
     - Projects establish bounty pools backed by real on-chain GEN escrow.
-    - Whitehat researchers submit vulnerability reports with Proof-of-Concept
-      (PoC) code.
-    - GenLayer AI Validators perform sandboxed sanity checks and threat
-      modeling, reaching consensus on severity (CRITICAL, HIGH, MEDIUM, LOW,
+    - Whitehat researchers submit vulnerability reports with static metadata
+      and CVSS vectors.
+    - GenVM validators evaluate the static vulnerability metadata and CVSS
+      vectors against authoritative repository telemetry, reaching multi-LLM
+      equivalence consensus on severity (CRITICAL, HIGH, MEDIUM, LOW,
       INVALID).
     - On a VERIFIED verdict the contract settles value: it transfers the tiered
       bounty in native GEN from escrow directly to the researcher.

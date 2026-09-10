@@ -79,7 +79,7 @@
           Autonomous Bug Bounty Protocol with <span class="gradient-text">AI Quorum Consensus</span>
         </h1>
         <p class="hero-desc">
-          Whitehats submit reproducible exploit code; GenLayer validators verify execution in sandboxes and release non-custodial payouts from real on-chain escrow in seconds.
+          Whitehats submit static vulnerability metadata and CVSS vectors; GenLayer validators reach multi-LLM equivalence consensus against authoritative repository telemetry and release non-custodial payouts from real on-chain escrow in seconds.
         </p>
 
         <div class="hero-actions">
@@ -194,8 +194,8 @@
           <div class="flow-step-card">
             <div class="step-num-badge">02</div>
             <div class="step-icon">[2]</div>
-            <h3>Deterministic Sandboxed Check</h3>
-            <p>GenVM spawns an isolated execution sandbox (<code>gl.vm.spawn_sandbox</code>) to structurally verify syntax, assertion violations, and extract ground-truth exploit telemetry.</p>
+            <h3>Static Metadata &amp; Vector Evaluation</h3>
+            <p>GenVM validators evaluate the submitted static vulnerability metadata and CVSS vectors against authoritative repository telemetry to establish ground-truth exploit context.</p>
           </div>
 
           <div class="flow-step-card">
@@ -242,7 +242,7 @@
               <span class="faq-arrow">v</span>
             </button>
             <div class="faq-answer">
-              <p>ImmuniLayer uses GenLayer Intelligent Contracts written in Python. When an exploit report is submitted, the contract spawns an isolated execution sandbox to verify code structure and assertion logic, then broadcasts the threat model to independent validator nodes that run LLM evaluations and reach quorum consensus under Optimistic Democracy.</p>
+              <p>ImmuniLayer uses GenLayer Intelligent Contracts written in Python. When a vulnerability report is submitted, the contract normalizes its static metadata and CVSS vectors and ingests authoritative repository telemetry, then broadcasts the threat model to independent validator nodes that run LLM evaluations and reach quorum consensus under Optimistic Democracy.</p>
             </div>
           </div>
 
@@ -258,11 +258,11 @@
 
           <div class="faq-item">
             <button class="faq-question">
-              <span>How is PoC code executed safely in sandboxes?</span>
+              <span>How does ImmuniLayer establish objective ground truth?</span>
               <span class="faq-arrow">v</span>
             </button>
             <div class="faq-answer">
-              <p>Exploit PoC scripts are parsed and evaluated inside <code>gl.vm.spawn_sandbox()</code> with restricted built-in primitives. This extracts objective metrics (such as assertion counts, lines of code, and target contract interfaces) to provide ground truth that prevents AI hallucination.</p>
+              <p>Submitted static vulnerability metadata and CVSS vectors are normalized and scored against authoritative repository telemetry ingested by the validators. This extracts objective metrics (such as CVSS base scores, affected component interfaces, and target contract surfaces) to provide ground truth that prevents AI hallucination.</p>
             </div>
           </div>
 
@@ -347,7 +347,7 @@
           <div class="panel-header">
             <div>
               <h2 class="panel-title">PoC Exploit Studio</h2>
-              <p class="panel-subtitle">Submit reproducible exploit code for multi-validator sandboxed evaluation</p>
+              <p class="panel-subtitle">Submit static vulnerability metadata and CVSS vectors for multi-LLM equivalence consensus</p>
             </div>
             <div class="preset-selector">
               <span class="preset-label">Templates:</span>
@@ -423,7 +423,7 @@
                   <span>exploit_poc.py</span>
                 </div>
                 <div class="code-box-meta">
-                  <span class="clean-check">gl.vm.spawn_sandbox syntax verified</span>
+                  <span class="clean-check">static metadata &amp; CVSS vectors verified</span>
                   <button type="button" class="btn-link" onclick="formatEditorCode()">Clean Code</button>
                 </div>
               </div>
@@ -436,7 +436,7 @@
 
             <div class="form-actions">
               <div class="security-note">
-                <span>Executed in isolated sandboxes across independent GenLayer validators. Non-custodial payout on consensus.</span>
+                <span>Evaluated via multi-LLM equivalence consensus across independent GenLayer validators. Non-custodial payout on consensus.</span>
               </div>
               <button type="submit" id="submitReportBtn" class="btn btn-primary btn-lg">
                 <span>Run AI Consensus Verification</span>
@@ -559,7 +559,7 @@
           <div class="stepper-horizontal">
             <div class="step-h done">1. Broadcast</div>
             <div class="step-h-line done"></div>
-            <div class="step-h done">2. Sandbox Test</div>
+            <div class="step-h done">2. Metadata Eval</div>
             <div class="step-h-line done"></div>
             <div class="step-h active">3. AI Evaluation</div>
             <div class="step-h-line"></div>
@@ -765,8 +765,8 @@
         <div class="step-v" id="step2">
           <span class="step-v-num">2</span>
           <div>
-            <strong>Sandbox PoC Verification</strong>
-            <p>gl.vm.spawn_sandbox structural verification</p>
+            <strong>Static Metadata &amp; Vector Evaluation</strong>
+            <p>Authoritative telemetry ingestion &amp; CVSS vector scoring</p>
           </div>
         </div>
         <div class="step-v" id="step3">
