@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * ImmuniLayer E2E: create_bounty_pool against the live studio-dev contract.
+ * ImmuniLayer E2E: create_bounty_pool against the live studio-next contract.
  *
- * Uses the same address (frontend/config.js), chain (genlayer-js studioDevnet, studio-dev
+ * Uses the same address (frontend/config.js), chain (genlayer-js studioDevnet config retargeted to studio-next
  * RPC, Chain ID 61997) and call shape (frontend/app.js handleCreatePool) as the
  * browser app, so a pass here proves the app's pool-creation path works.
  *
@@ -15,7 +15,8 @@ import { createClient, createAccount } from "genlayer-js";
 import { studioDevnet } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
 
-const RPC = "https://studio-dev.genlayer.com/api";
+const RPC = "https://studio-next.genlayer.com/api";
+
 const CHAIN_ID = 61997;
 const GEN = 10n ** 18n;
 
@@ -37,9 +38,13 @@ const rpc = async (method, params) => {
 };
 const step = (s) => console.log(`\n[STEP] ${s}`);
 
-// Native studio-dev chain (id 61997, RPC studio-dev.genlayer.com/api, with the
-// fee-manager contracts studio-dev consensus requires). The frontend uses this too.
-const chain = studioDevnet;
+// Native studio-next chain (id 61997, RPC studio-next.genlayer.com/api, with the
+// fee-manager contracts studio-next consensus requires). The frontend uses this too.
+const chain = {
+  ...studioDevnet,
+  name: "GenLayer Studio Next",
+  rpcUrls: { default: { http: [RPC] } }
+};
 
 step(`network check (${RPC})`);
 const chainId = parseInt(await rpc("eth_chainId", []), 16);
@@ -55,6 +60,7 @@ const account = createAccount();
 console.log("ephemeral account:", account.address);
 const client = createClient({ chain, account });
 try { await client.connect("studioDevnet"); } catch (e) { console.warn("connect warning:", e.message); }
+client.chain = chain; // connect() swaps in the bundled chain object; re-pin studio-next
 
 step("fund account (sim_fundAccount)");
 try {
@@ -73,7 +79,7 @@ const write = {
   args: [name, "https://github.com/genlayerlabs/genlayer-js", "E2E test pool", 5n * GEN, 3n * GEN, 2n * GEN, 1n * GEN],
   value: 1n * GEN
 };
-// studio-dev consensus requires a non-zero fee value + fees distribution.
+// studio-next consensus requires a non-zero fee value + fees distribution.
 const est = await client.estimateTransactionFeesForWrite(write);
 console.log("fee estimate (wei):", est.feeValue.toString());
 const hash = await client.writeContract({
@@ -81,7 +87,7 @@ const hash = await client.writeContract({
   fees: { distribution: est.distribution, messageAllocations: est.messageAllocations, feeValue: est.feeValue }
 });
 console.log("tx hash:", hash);
-console.log("explorer:", `https://explorer-studio-dev.genlayer.com/tx/${hash}`);
+console.log("explorer:", `https://explorer-studio-next.genlayer.com/tx/${hash}`);
 
 step("wait for receipt");
 const receipt = await client.waitForTransactionReceipt({

@@ -6,36 +6,36 @@
  * dashboard comes from REAL reads and writes against the deployed intelligent
  * contract. No mock data is produced here.
  *
- * Network: GenLayer Studio Devnet (studio-dev), Chain ID 61997 (0xF22D).
+ * Network: GenLayer Studio Next (studio-next), Chain ID 61997 (0xF22D).
  * Read client: public RPC, no wallet needed.
  * Write client: created on wallet connect; signs every transaction through the
  *   selected EIP-1193 provider (strict EIP-6963 MetaMask selection) OR through
  *   an ephemeral genlayer-js reviewer account for friction-free testing.
  */
 
-// Pinned to 2.0.0-rc.1: it ships the native studio-dev chain (id 61997) and the
-// fees-distribution transaction format studio-dev consensus requires. Unpinned
-// esm.sh resolves to 1.x, whose transactions revert on studio-dev
-// (FeesDistributionMissing) and whose bundled studionet points at 61999.
+// Pinned to 2.0.0-rc.1: it ships the native studio-next chain (id 61997) and the
+// fees-distribution transaction format studio-next consensus requires. Unpinned
+// esm.sh resolves to 1.x, whose transactions revert on studio-next
+// (FeesDistributionMissing) and whose bundled studionet targets a different chain.
 import { createClient, createAccount } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
 import { studioDevnet, studionet, localnet, testnetAsimov, testnetBradbury } from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
 import { TransactionStatus } from "https://esm.sh/genlayer-js@2.0.0-rc.1/types";
 
 // ---------------------------------------------------------------------------
-// Studio Devnet network parameters (Chain ID 61997)
+// Studio Next network parameters (Chain ID 61997)
 // ---------------------------------------------------------------------------
 const STUDIONET_CHAIN_ID_HEX = "0xF22D"; // 61997 decimal
 const STUDIONET_CHAIN_ID_DEC = 61997;
 
-// Official studio-dev endpoints (Chain ID 61997).
-const STUDIO_BASE = "https://studio-dev.genlayer.com";
+// Official studio-next endpoints (Chain ID 61997).
+const STUDIO_BASE = "https://studio-next.genlayer.com";
 const STUDIO_RPC_URL = STUDIO_BASE + "/api";
 // Block explorer is served from a distinct host.
-const EXPLORER_BASE = "https://explorer-studio-dev.genlayer.com";
+const EXPLORER_BASE = "https://explorer-studio-next.genlayer.com";
 
 const STUDIONET_PARAMS = {
   chainId: STUDIONET_CHAIN_ID_HEX,
-  chainName: "GenLayer Studio Devnet",
+  chainName: "GenLayer Studio Next",
   nativeCurrency: { name: "GEN", symbol: "GEN", decimals: 18 },
   rpcUrls: [STUDIO_RPC_URL],
   blockExplorerUrls: [EXPLORER_BASE]
@@ -104,9 +104,19 @@ function selectInjectedProvider() {
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+// genlayer-js's bundled studioDevnet chain has id 61997 but a different default
+// RPC. Reuse its consensus/fee-manager config and retarget RPC + explorer.
+const studioNext = {
+  ...studioDevnet,
+  name: "GenLayer Studio Next",
+  rpcUrls: { default: { http: [STUDIO_RPC_URL] } },
+  blockExplorers: { default: { name: "GenLayer Studio Next Explorer", url: EXPLORER_BASE } }
+};
+
 const CHAINS = {
-  // "studionet" in IMMUNI_CONFIG means the live studio-dev network (61997).
-  studionet: studioDevnet,
+  // "studionet" in IMMUNI_CONFIG means the live studio-next network (61997).
+  studionet: studioNext,
+  studioNext: studioNext,
   studioDevnet: studioDevnet,
   legacyStudionet: studionet,
   localnet: localnet,
@@ -122,11 +132,11 @@ function connectNetworkName() {
 
 function activeChain() {
   const name = (window.IMMUNI_CONFIG && window.IMMUNI_CONFIG.chainName) || "studionet";
-  const chain = CHAINS[name] || studioDevnet;
-  if (chain === studioDevnet && (chain.id !== STUDIONET_CHAIN_ID_DEC ||
+  const chain = CHAINS[name] || studioNext;
+  if (chain === studioNext && (chain.id !== STUDIONET_CHAIN_ID_DEC ||
       chain.rpcUrls.default.http[0] !== STUDIO_RPC_URL)) {
-    // Guard against a genlayer-js upgrade silently retargeting studio-dev.
-    throw new Error("genlayer-js studioDevnet does not match " + STUDIO_RPC_URL + " / " + STUDIONET_CHAIN_ID_DEC);
+    // Guard against a genlayer-js upgrade silently retargeting studio-next.
+    throw new Error("studioNext chain does not match " + STUDIO_RPC_URL + " / " + STUDIONET_CHAIN_ID_DEC);
   }
   return chain;
 }
@@ -136,7 +146,7 @@ function contractAddress() {
 }
 
 /**
- * Ensure the selected provider is on GenLayer Studio Devnet (Chain ID 61997).
+ * Ensure the selected provider is on GenLayer Studio Next (Chain ID 61997).
  * Every wallet RPC call is wrapped so a Snap-related -32601 (or a user
  * rejection) never aborts the connect flow.
  */
@@ -176,6 +186,16 @@ let readClient = null;
 let writeClient = null;
 let connectedAccount = null;
 let connectionMode = null; // "wallet" | "reviewer"
+let walletProvider = null; // EIP-1193 provider used in "wallet" mode
+let networkListeners = [];
+
+function notifyNetwork() {
+  ImmuniChain.walletChainId().then((id) => {
+    networkListeners.forEach((cb) => {
+      try { cb(id); } catch (e) { console.warn("[ImmuniChain] network listener error:", e); }
+    });
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Consensus v0.6 receipt evaluation
@@ -281,7 +301,7 @@ const ImmuniChain = {
 
   /**
    * Connect a browser wallet via strict EIP-6963 MetaMask selection and switch
-   * it to GenLayer Studio Devnet (Chain ID 61997). Returns the connected account.
+   * it to GenLayer Studio Next (Chain ID 61997). Returns the connected account.
    */
   async connect() {
     const provider = selectInjectedProvider();
@@ -311,6 +331,10 @@ const ImmuniChain = {
     }
     connectedAccount = accounts[0];
     connectionMode = "wallet";
+    walletProvider = provider;
+    if (typeof provider.on === "function") {
+      provider.on("chainChanged", notifyNetwork);
+    }
 
     writeClient = createClient({
       chain: activeChain(),
@@ -324,8 +348,9 @@ const ImmuniChain = {
       console.warn("[ImmuniChain] genlayer-js chain connect warning:", e);
     }
     // connect() swaps client.chain for its bundled network object; re-pin the
-    // studio-dev chain so writes always target the right RPC and consensus.
+    // studio-next chain so writes always target the right RPC and consensus.
     writeClient.chain = activeChain();
+    notifyNetwork();
 
     return connectedAccount;
   },
@@ -347,7 +372,7 @@ const ImmuniChain = {
       account: account
     });
 
-    // Fresh studio-dev accounts hold no GEN; fund the ephemeral key so it can
+    // Fresh studio-next accounts hold no GEN; fund the ephemeral key so it can
     // pay the escrow deposit and consensus fees.
     try {
       await writeClient.request({
@@ -362,9 +387,47 @@ const ImmuniChain = {
   },
 
   disconnect() {
+    if (walletProvider && typeof walletProvider.removeListener === "function") {
+      walletProvider.removeListener("chainChanged", notifyNetwork);
+    }
+    walletProvider = null;
     writeClient = null;
     connectedAccount = null;
     connectionMode = null;
+    notifyNetwork();
+  },
+
+  /**
+   * Chain ID (decimal) the connected wallet is on, or null for reviewer /
+   * disconnected sessions (their local-key client always targets 61997).
+   */
+  async walletChainId() {
+    if (connectionMode !== "wallet" || !walletProvider) return null;
+    try {
+      return parseInt(await walletProvider.request({ method: "eth_chainId" }), 16);
+    } catch (e) {
+      return null;
+    }
+  },
+
+  /** True unless a browser wallet is connected to the wrong network. */
+  async isOnStudioNext() {
+    const id = await this.walletChainId();
+    return id === null || id === STUDIONET_CHAIN_ID_DEC;
+  },
+
+  /** Ask the wallet to switch to (or add) Studio Next. Returns true on success. */
+  async switchNetwork() {
+    if (!walletProvider) return false;
+    await ensureCorrectNetwork(walletProvider);
+    const ok = await this.isOnStudioNext();
+    notifyNetwork();
+    return ok;
+  },
+
+  /** Subscribe to wallet network changes; cb(chainIdOrNull). */
+  onNetworkChange(cb) {
+    networkListeners.push(cb);
   },
 
   /**
@@ -375,13 +438,25 @@ const ImmuniChain = {
     if (!writeClient) {
       throw new Error("Wallet not connected. Connect a wallet or use the Reviewer Account first.");
     }
+    // A wallet on another chain would send the tx to an RPC where the contract
+    // does not exist ("Contract not found"). Switch, or fail with a clear message.
+    if (!(await this.isOnStudioNext())) {
+      const switched = await this.switchNetwork().catch(() => false);
+      if (!switched) {
+        const err = new Error(
+          "Your wallet is not on GenLayer Studio Next (Chain ID 61997). Switch network in your wallet and retry."
+        );
+        err.wrongNetwork = true;
+        throw err;
+      }
+    }
     const call = {
       address: contractAddress(),
       functionName: functionName,
       args: args,
       value: value
     };
-    // studio-dev consensus rejects transactions without a fees distribution
+    // studio-next consensus rejects transactions without a fees distribution
     // and a non-zero fee value, so estimate them per call.
     const est = await writeClient.estimateTransactionFeesForWrite(call);
     return await writeClient.writeContract({

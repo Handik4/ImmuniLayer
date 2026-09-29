@@ -14,6 +14,10 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="networkBanner" class="network-banner" role="alert" hidden>
+    <span>Your wallet is on the wrong network. ImmuniLayer runs on <strong>GenLayer Studio Next (Chain ID 61997)</strong>.</span>
+    <button class="btn btn-primary" id="networkBannerSwitchBtn" type="button">Switch to Studio Next</button>
+  </div>
 
   <!-- Interactive 3D Background Canvas -->
   <canvas id="bg3dCanvas" class="bg-3d-canvas"></canvas>
@@ -901,7 +905,7 @@
       </div>
       <div class="footer-links">
         <a href="https://docs.genlayer.com" target="_blank" rel="noopener">Documentation</a>
-        <a href="https://studio-dev.genlayer.com" target="_blank" rel="noopener">GenLayer Studio</a>
+        <a href="https://studio-next.genlayer.com" target="_blank" rel="noopener">GenLayer Studio</a>
         <a href="https://skills.genlayer.com" target="_blank" rel="noopener">Skills</a>
         <a href="https://github.com/genlayerlabs" target="_blank" rel="noopener">GitHub</a>
       </div>

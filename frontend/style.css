@@ -1900,6 +1900,31 @@ body {
   max-width: 380px;
 }
 
+.toast-message a {
+  color: var(--cyan);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+.network-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: var(--red);
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.network-banner[hidden] {
+  display: none;
+}
+
 .toast-message.toast-success {
   border-left: 4px solid var(--green);
 }

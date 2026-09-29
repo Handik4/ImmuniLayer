@@ -7,7 +7,7 @@
  * Vercel env var or a stale browser value can never point the app at a
  * contract that does not exist ("Contract not found").
  *
- * Network: GenLayer Studio Devnet (studio-dev), RPC https://studio-dev.genlayer.com/api,
+ * Network: GenLayer Studio Next (studio-next), RPC https://studio-next.genlayer.com/api,
  * Chain ID 61997. "studionet" below resolves to genlayer-js's studioDevnet
  * chain in genlayer-client.js.
  *
@@ -23,8 +23,8 @@
   }
 
   window.IMMUNI_CONFIG = {
-    // Live ImmuniLayer contract on GenLayer Studio Devnet (studio-dev).
-    contractAddress: "0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f",
+    // Live ImmuniLayer contract on GenLayer Studio Next (studio-next).
+    contractAddress: "0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623",
     // Target GenLayer network for both reads and writes.
     chainName: "studionet",
     // Native GEN uses 18 decimals (1 GEN = 10^18 wei).

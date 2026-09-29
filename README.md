@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![GenLayer](https://img.shields.io/badge/GenLayer-Studio%20Devnet%20(studio--dev)-00E5FF?style=for-the-badge&logo=ethereum&logoColor=black)
+![GenLayer](https://img.shields.io/badge/GenLayer-Studio%20Next%20(studio--next)-00E5FF?style=for-the-badge&logo=ethereum&logoColor=black)
 ![Runner](https://img.shields.io/badge/Runner-v0.3.0-7C4DFF?style=for-the-badge)
 ![Consensus](https://img.shields.io/badge/Consensus-v0.6-00E676?style=for-the-badge)
 ![Tests](https://img.shields.io/badge/pytest-67%2F67%20passing-00E676?style=for-the-badge)
@@ -51,15 +51,46 @@ All disclosures, verdicts, settlements, and telemetry are permanently recorded o
 
 | Parameter | Value |
 | :--- | :--- |
-| **Contract Address** | `0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f` |
-| **Explorer** | https://explorer-studio-dev.genlayer.com/address/0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f |
-| **Network** | GenLayer Studio Devnet (`studio-dev`) |
+| **Contract Address** | `0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623` |
+| **Explorer** | https://explorer-studio-next.genlayer.com/address/0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 |
+| **Network** | GenLayer Studio Next (`studio-next`) |
 | **Chain ID** | `61997` |
-| **RPC URL** | `https://studio-dev.genlayer.com/api` |
+| **RPC URL** | `https://studio-next.genlayer.com/api` |
 | **Runner** | `py-genlayer:5jycge4q8k23462jtb0b9fyey1s9qz928sz2nbrd9mg4sxqg2qng` (v0.3.0) |
 | **Contract Class** | `ImmuniLayerBugBounty` — 13 methods (6 view, 7 write) |
 
-The frontend reads the address from `frontend/config.js` and can be overridden at runtime with `localStorage.setItem("immunilayer_contract", "0x…")`.
+The frontend reads the address from `frontend/config.js`. It is hardcoded on purpose (no env var or `localStorage` override) so a stale value can never trigger `Contract not found`.
+
+**Verified contract (Studio Next):** https://explorer-studio-next.genlayer.com/address/0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623
+
+### Live on-chain pool creation (verified)
+
+| Run | Tx hash | Explorer |
+|---|---|---|
+| `python3 scripts/interact_live.py` (dedicated local key) | `0xf1b7623db1a4d5d317901e4778cf8955b794f486774c320289da74be055adc10` | https://explorer-studio-next.genlayer.com/tx/0xf1b7623db1a4d5d317901e4778cf8955b794f486774c320289da74be055adc10 |
+| `npm run e2e` in `scripts/` (ephemeral key, genlayer-js) | `0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77` | https://explorer-studio-next.genlayer.com/tx/0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77 |
+| Frontend UI (headless Chrome, Reviewer Account) | `0xa875109ae8ebbd00658a62b404e1c02a21cd6e4ebd8e3df1997c94ed9f3ea5f3` | https://explorer-studio-next.genlayer.com/tx/0xa875109ae8ebbd00658a62b404e1c02a21cd6e4ebd8e3df1997c94ed9f3ea5f3 |
+
+Each ended `MAJORITY_AGREE` / `FINISHED_WITH_RETURN`, and the pool was read back from `get_all_pools`.
+
+**Why earlier attempts failed:** the app was pointed at another chain, where the contract does not exist (`Contract not found`). Studio Next also rejects transactions without a fees distribution, so every write now estimates and attaches `fees.distribution` and `fees.feeValue`. If a connected wallet is not on chain 61997, a red banner offers a one-click switch and writes are blocked with a clear message.
+
+### Steps for stewards (from the frontend)
+
+1. `cd frontend && npm run build && npm run serve`, then open http://localhost:8080.
+2. Click **Connect Wallet**, then **Reviewer Account**. It is a throwaway key funded automatically, so no wallet is needed. MetaMask also works: approve the switch to **GenLayer Studio Next** (chain `0xF22D` / 61997, RPC `https://studio-next.genlayer.com/api`).
+3. Click **Create New Pool**. Fill name, GitHub repo URL, description, a deposit above 0 GEN (for example 1) and caps with CRITICAL ≥ HIGH ≥ MEDIUM ≥ LOW.
+4. Submit. Consensus takes about 10–30 s. A green toast appears with a **View tx** link to the explorer, and the pool shows up in the list, read back from the contract. On failure the red toast shows the exact reason.
+
+### Automated checks
+
+```bash
+cd frontend && npm run build          # syntax-checks the JS and assembles dist/ (there is no TypeScript in this project)
+cd scripts && npm install && npm run e2e   # genlayer-js: create_bounty_pool + read-back, ends with [PASS]
+python3 scripts/interact_live.py      # genlayer-py >= 0.19.0rc2; creates .env with a local key on first run (git-ignored), funds it via sim_fundAccount, creates a pool with fees attached
+```
+
+Set `CONTRACT_ADDRESS=0x…` to test another deployment.
 
 ---
 
@@ -215,13 +246,13 @@ class ImmuniLayerBugBounty(gl.contract.Contract):
 
 ## Developer & Researcher Tutorial
 
-All CLI examples target studio-dev (`--rpc https://studio-dev.genlayer.com/api`). Monetary amounts are in wei (1 GEN = 10¹⁸ wei).
+All CLI examples target studio-next (`--rpc https://studio-next.genlayer.com/api`). Monetary amounts are in wei (1 GEN = 10¹⁸ wei).
 
 **1. Create a bounty pool** (payable; `--value` funds the escrow; caps must follow CRITICAL ≥ HIGH ≥ MEDIUM ≥ LOW):
 
 ```bash
-genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f create_bounty_pool \
-  --rpc https://studio-dev.genlayer.com/api \
+genlayer write 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 create_bounty_pool \
+  --rpc https://studio-next.genlayer.com/api \
   --value 10000000000000000000 \
   --args "Nexus Cross-Chain Bridge" \
          "https://github.com/nexus-core/bridge" \
@@ -232,8 +263,8 @@ genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f create_bounty_pool \
 **2. Submit a vulnerability** bound to an exact target revision (the `repo_url` must match the pool's registered repository, or the call reverts with `ERR_MISMATCHED_REPOSITORY`):
 
 ```bash
-genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f submit_vulnerability \
-  --rpc https://studio-dev.genlayer.com/api \
+genlayer write 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 submit_vulnerability \
+  --rpc https://studio-next.genlayer.com/api \
   --args 1 \
          "Flashloan Oracle Manipulation in PriceRouter" \
          "Oracle Manipulation / Flashloan" \
@@ -248,22 +279,22 @@ genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f submit_vulnerability \
 **3. Query protocol state and disclosures:**
 
 ```bash
-genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_protocol_stats --rpc https://studio-dev.genlayer.com/api
-genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_all_pools     --rpc https://studio-dev.genlayer.com/api
-genlayer call 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f get_report --args 1 --rpc https://studio-dev.genlayer.com/api
+genlayer call 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 get_protocol_stats --rpc https://studio-next.genlayer.com/api
+genlayer call 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 get_all_pools     --rpc https://studio-next.genlayer.com/api
+genlayer call 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 get_report --args 1 --rpc https://studio-next.genlayer.com/api
 ```
 
 **4. Withdraw a settled bounty** (beneficiary pull):
 
 ```bash
-genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f withdraw --rpc https://studio-dev.genlayer.com/api
+genlayer write 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 withdraw --rpc https://studio-next.genlayer.com/api
 ```
 
 **5. Appeal a contested verdict:**
 
 ```bash
-genlayer write 0x5aDf4EA71be5D047a9e8E73826f7aa1414fC183f appeal_report \
-  --rpc https://studio-dev.genlayer.com/api \
+genlayer write 0x1119f5Dca02E9C2C87E41576AF4D1a47aA526623 appeal_report \
+  --rpc https://studio-next.genlayer.com/api \
   --args 1 "Call trace shows the invariant bypass on line 142 of PriceRouter.sol."
 ```
 
@@ -335,7 +366,7 @@ npm run build          # assembles dist/ (0-dependency static build)
 npm run serve          # serves on http://localhost:8080
 ```
 
-The dashboard performs **real** contract reads and writes through `genlayer-js` against the deployed contract on studio-dev — pools, disclosures, verdicts, and payouts are decoded from on-chain state, not simulated.
+The dashboard performs **real** contract reads and writes through `genlayer-js` against the deployed contract on studio-next — pools, disclosures, verdicts, and payouts are decoded from on-chain state, not simulated.
 
 ---
 

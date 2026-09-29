@@ -118,7 +118,7 @@ function explorerTxUrl(hash) {
   if (window.ImmuniChain && window.ImmuniChain.explorerTxUrl) {
     return window.ImmuniChain.explorerTxUrl(hash);
   }
-  return "https://explorer-studio-dev.genlayer.com/tx/" + (hash || "");
+  return "https://explorer-studio-next.genlayer.com/tx/" + (hash || "");
 }
 
 // ============================================================================
@@ -1370,6 +1370,21 @@ async function handleSubmitVulnerability(e) {
   }
 }
 
+/** Build the most specific failure message available: on-chain revert reason,
+ *  RPC error details, or the wallet/SDK message (with a hint for the
+ *  "Contract not found" RPC error that means a wrong network or address). */
+function describeTxError(err) {
+  if (!err) return "unknown error";
+  let msg = err.reverted && err.receipt && window.ImmuniChain
+    ? window.ImmuniChain.revertReason(err.receipt)
+    : (err.details || err.shortMessage || err.message || String(err));
+  if (err.wrongNetwork) return msg;
+  if (/contract not found/i.test(msg)) {
+    msg += ` (contract ${state.contractAddress} is not deployed on the connected network; expected GenLayer Studio Next, Chain ID 61997)`;
+  }
+  return msg;
+}
+
 async function handleCreatePool(e) {
   e.preventDefault();
 
@@ -1378,6 +1393,12 @@ async function handleCreatePool(e) {
     showToast("Connect a wallet to create an on-chain pool.", "info");
     await connectWallet();
     if (!chain.isConnected()) return;
+  }
+
+  if (!(await chain.isOnStudioNext())) {
+    await updateNetworkBanner();
+    showToast("Switch your wallet to GenLayer Studio Next (Chain ID 61997) first.", "danger");
+    return;
   }
 
   const name = document.getElementById("newPoolName").value.trim();
@@ -1416,14 +1437,17 @@ async function handleCreatePool(e) {
 
     await chain.waitReceipt(txHash);
     logConsensus("[CHAIN] Pool created and escrow locked on-chain.");
-    showToast("Bounty pool created and escrow locked on-chain.", "success");
+    showToast("Bounty pool created and escrow locked on-chain.", "success",
+      { url: explorerTxUrl(txHash), label: "View tx" });
 
     await refreshFromChain();
     closeCreatePoolModal();
     document.getElementById("createPoolForm").reset();
   } catch (err) {
-    logConsensus(`[TX_ERROR] ${err.message || err}`);
-    showToast(`Pool creation failed: ${err.message || err}`, "danger");
+    const reason = describeTxError(err);
+    console.error("[create_bounty_pool] failed:", err);
+    logConsensus(`[TX_ERROR] ${reason}`);
+    showToast(`Pool creation failed: ${reason}`, "danger");
   }
 }
 
@@ -1431,7 +1455,7 @@ async function handleCreatePool(e) {
 // WEB3 WALLET (real connection via genlayer-js / window.ethereum)
 // ============================================================================
 
-function showToast(message, type = "info") {
+function showToast(message, type = "info", link) {
   const container = document.getElementById("toastContainer");
   if (!container) return;
 
@@ -1442,13 +1466,16 @@ function showToast(message, type = "info") {
   if (type === "success") tag = "[ok]";
   if (type === "danger") tag = "[warn]";
 
-  toast.innerHTML = `<span>${tag}</span><span style="flex:1;">${escapeHtml(message)}</span>`;
+  const linkHtml = link && /^https:\/\//.test(link.url)
+    ? `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.label || "View transaction")}</a>`
+    : "";
+  toast.innerHTML = `<span>${tag}</span><span style="flex:1;">${escapeHtml(message)}</span>${linkHtml}`;
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.animation = "toastOut 0.3s forwards";
     setTimeout(() => toast.remove(), 300);
-  }, 4000);
+  }, link || type === "danger" ? 12000 : 4000);
 }
 
 function updateWalletUI() {
@@ -1489,7 +1516,8 @@ async function connectWallet() {
     updateWalletUI();
     closeConnectWalletModal();
     showToast(`Connected ${shortAddr(account)} on ${state.chainName}`, "success");
-    logConsensus(`[WALLET] Connected ${account} on GenLayer StudioNet (Chain ID 61999)`);
+    logConsensus(`[WALLET] Connected ${account} on GenLayer Studio Next (Chain ID 61997)`);
+    await updateNetworkBanner();
     refreshClaimable();
 
     if (window.ethereum && window.ethereum.on) {
@@ -1514,10 +1542,23 @@ async function connectWallet() {
   }
 }
 
+/** Show the wrong-network banner when a connected wallet is not on chain 61997. */
+async function updateNetworkBanner() {
+  const banner = document.getElementById("networkBanner");
+  if (!banner) return;
+  const chain = window.ImmuniChain;
+  banner.hidden = !chain || (await chain.isOnStudioNext());
+}
+
 async function switchToGenLayerNetwork() {
   const chain = await ensureChain();
   try {
-    await chain.connect();
+    if (chain.mode() === "wallet") {
+      if (!(await chain.switchNetwork())) throw new Error("wallet did not switch to Chain ID 61997");
+    } else {
+      await chain.connect();
+    }
+    await updateNetworkBanner();
     showToast(`Wallet switched to ${state.chainName}.`, "success");
   } catch (err) {
     showToast(`Network switch failed: ${err.message || err}`, "danger");
@@ -1633,6 +1674,10 @@ function setupWallet() {
 
   const headerDisconnect = document.getElementById("headerDisconnectBtn");
   if (headerDisconnect) headerDisconnect.onclick = disconnectWallet;
+
+  const bannerBtn = document.getElementById("networkBannerSwitchBtn");
+  if (bannerBtn) bannerBtn.onclick = switchToGenLayerNetwork;
+  ensureChain().then((c) => c.onNetworkChange(updateNetworkBanner)).catch(() => {});
 
   const switchBtn = document.getElementById("switchNetworkMetaMaskBtn");
   if (switchBtn) switchBtn.onclick = switchToGenLayerNetwork;
@@ -1852,6 +1897,17 @@ window.handleWalletBtnClick = handleWalletBtnClick;
 window.connectWallet = connectWallet;
 window.disconnectWallet = disconnectWallet;
 window.switchToGenLayerNetwork = switchToGenLayerNetwork;
+
+// Error boundary: never leave a failure silent or a promise rejection unhandled.
+window.addEventListener("unhandledrejection", (ev) => {
+  console.error("[unhandledrejection]", ev.reason);
+  showToast(`Unexpected error: ${describeTxError(ev.reason)}`, "danger");
+  ev.preventDefault();
+});
+window.addEventListener("error", (ev) => {
+  console.error("[window.error]", ev.error || ev.message);
+  showToast(`Unexpected error: ${ev.message}`, "danger");
+});
 window.openConnectWalletModal = openConnectWalletModal;
 window.closeConnectWalletModal = closeConnectWalletModal;
 window.openWalletDetailsModal = openWalletDetailsModal;
