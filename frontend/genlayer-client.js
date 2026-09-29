@@ -13,9 +13,13 @@
  *   an ephemeral genlayer-js reviewer account for friction-free testing.
  */
 
-import { createClient, createAccount } from "https://esm.sh/genlayer-js";
-import { studionet, localnet, testnetAsimov, testnetBradbury } from "https://esm.sh/genlayer-js/chains";
-import { TransactionStatus } from "https://esm.sh/genlayer-js/types";
+// Pinned to 2.0.0-rc.1: it ships the native studio-dev chain (id 61997) and the
+// fees-distribution transaction format studio-dev consensus requires. Unpinned
+// esm.sh resolves to 1.x, whose transactions revert on studio-dev
+// (FeesDistributionMissing) and whose bundled studionet points at 61999.
+import { createClient, createAccount } from "https://esm.sh/genlayer-js@2.0.0-rc.1";
+import { studioDevnet, studionet, localnet, testnetAsimov, testnetBradbury } from "https://esm.sh/genlayer-js@2.0.0-rc.1/chains";
+import { TransactionStatus } from "https://esm.sh/genlayer-js@2.0.0-rc.1/types";
 
 // ---------------------------------------------------------------------------
 // Studio Devnet network parameters (Chain ID 61997)
@@ -101,34 +105,30 @@ function selectInjectedProvider() {
 // Internal helpers
 // ---------------------------------------------------------------------------
 const CHAINS = {
-  studionet: studionet,
+  // "studionet" in IMMUNI_CONFIG means the live studio-dev network (61997).
+  studionet: studioDevnet,
+  studioDevnet: studioDevnet,
+  legacyStudionet: studionet,
   localnet: localnet,
   testnetAsimov: testnetAsimov,
   testnetBradbury: testnetBradbury
 };
 
+// genlayer-js network name understood by client.connect().
+function connectNetworkName() {
+  const name = (window.IMMUNI_CONFIG && window.IMMUNI_CONFIG.chainName) || "studionet";
+  return name === "studionet" ? "studioDevnet" : name;
+}
+
 function activeChain() {
   const name = (window.IMMUNI_CONFIG && window.IMMUNI_CONFIG.chainName) || "studionet";
-  const base = CHAINS[name] || studionet;
-  // Pin the RPC/explorer/chainId to the official studio-dev endpoints for
-  // studionet, overriding whatever default the bundled genlayer-js chain ships
-  // with (the bundled studionet still targets studio-next / 61999).
-  if (name === "studionet") {
-    return {
-      ...base,
-      id: STUDIONET_CHAIN_ID_DEC,
-      rpcUrls: {
-        ...(base.rpcUrls || {}),
-        default: { http: [STUDIO_RPC_URL] },
-        public: { http: [STUDIO_RPC_URL] }
-      },
-      blockExplorers: {
-        ...(base.blockExplorers || {}),
-        default: { name: "GenLayer Studio Devnet Explorer", url: EXPLORER_BASE }
-      }
-    };
+  const chain = CHAINS[name] || studioDevnet;
+  if (chain === studioDevnet && (chain.id !== STUDIONET_CHAIN_ID_DEC ||
+      chain.rpcUrls.default.http[0] !== STUDIO_RPC_URL)) {
+    // Guard against a genlayer-js upgrade silently retargeting studio-dev.
+    throw new Error("genlayer-js studioDevnet does not match " + STUDIO_RPC_URL + " / " + STUDIONET_CHAIN_ID_DEC);
   }
-  return base;
+  return chain;
 }
 
 function contractAddress() {
@@ -183,11 +183,12 @@ let connectionMode = null; // "wallet" | "reviewer"
 // Under GenLayer Consensus v0.6 a transaction reaching ACCEPTED or FINALIZED
 // status only means the validator quorum agreed on an OUTCOME - and that
 // outcome can be a revert. A call is only truly successful when the leader
-// receipt's execution_result is FINISHED_WITH_RETURN. We therefore gate success
+// receipt's execution_result is SUCCESS / FINISHED_WITH_RETURN. We therefore gate success
 // on BOTH the transaction status AND the execution result, and surface the
 // underlying revert reason otherwise (never a false "success").
 const SUCCESS_STATUSES = ["ACCEPTED", "FINALIZED"];
-const SUCCESS_EXECUTION = "FINISHED_WITH_RETURN";
+// genlayer-js 2.x reports the leader receipt as SUCCESS; 1.x as FINISHED_WITH_RETURN.
+const SUCCESS_EXECUTIONS = ["SUCCESS", "FINISHED_WITH_RETURN"];
 
 function _upper(v) {
   return typeof v === "string" ? v.toUpperCase() : v;
@@ -210,6 +211,7 @@ function receiptExecutionResult(receipt) {
   const lr = leaderReceipt(receipt);
   return _upper(
     (lr && (lr.executionResult || lr.execution_result)) ||
+    receipt.txExecutionResultName ||
     receipt.executionResult ||
     receipt.execution_result
   );
@@ -317,10 +319,13 @@ const ImmuniChain = {
     });
 
     try {
-      await writeClient.connect(window.IMMUNI_CONFIG.chainName);
+      await writeClient.connect(connectNetworkName());
     } catch (e) {
       console.warn("[ImmuniChain] genlayer-js chain connect warning:", e);
     }
+    // connect() swaps client.chain for its bundled network object; re-pin the
+    // studio-dev chain so writes always target the right RPC and consensus.
+    writeClient.chain = activeChain();
 
     return connectedAccount;
   },
@@ -335,15 +340,22 @@ const ImmuniChain = {
     connectedAccount = account.address;
     connectionMode = "reviewer";
 
+    // Local-key account: no wallet/snap needed, so client.connect() is skipped
+    // (it would prompt an installed MetaMask and replace the pinned chain).
     writeClient = createClient({
       chain: activeChain(),
       account: account
     });
 
+    // Fresh studio-dev accounts hold no GEN; fund the ephemeral key so it can
+    // pay the escrow deposit and consensus fees.
     try {
-      await writeClient.connect(window.IMMUNI_CONFIG.chainName);
+      await writeClient.request({
+        method: "sim_fundAccount",
+        params: [account.address, Number(100n * 10n ** 18n)]
+      });
     } catch (e) {
-      console.warn("[ImmuniChain] reviewer chain connect warning:", e);
+      console.warn("[ImmuniChain] reviewer funding warning:", e);
     }
 
     return connectedAccount;
@@ -363,11 +375,22 @@ const ImmuniChain = {
     if (!writeClient) {
       throw new Error("Wallet not connected. Connect a wallet or use the Reviewer Account first.");
     }
-    return await writeClient.writeContract({
+    const call = {
       address: contractAddress(),
       functionName: functionName,
       args: args,
       value: value
+    };
+    // studio-dev consensus rejects transactions without a fees distribution
+    // and a non-zero fee value, so estimate them per call.
+    const est = await writeClient.estimateTransactionFeesForWrite(call);
+    return await writeClient.writeContract({
+      ...call,
+      fees: {
+        distribution: est.distribution,
+        messageAllocations: est.messageAllocations,
+        feeValue: est.feeValue
+      }
     });
   },
 
@@ -377,16 +400,8 @@ const ImmuniChain = {
    * value. Prefers the SDK's own client.isSuccessful() when available.
    */
   isSuccessful(receipt) {
-    const client = writeClient || this.getReadClient();
-    if (client && typeof client.isSuccessful === "function") {
-      try {
-        return !!client.isSuccessful(receipt);
-      } catch (e) {
-        // Fall through to the manual check below.
-      }
-    }
     const statusOk = SUCCESS_STATUSES.includes(receiptStatusName(receipt));
-    const execOk = receiptExecutionResult(receipt) === SUCCESS_EXECUTION;
+    const execOk = SUCCESS_EXECUTIONS.includes(receiptExecutionResult(receipt));
     return statusOk && execOk;
   },
 

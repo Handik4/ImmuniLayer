@@ -118,7 +118,7 @@ function explorerTxUrl(hash) {
   if (window.ImmuniChain && window.ImmuniChain.explorerTxUrl) {
     return window.ImmuniChain.explorerTxUrl(hash);
   }
-  return "https://explorer-studio.genlayer.com/tx/" + (hash || "");
+  return "https://explorer-studio-dev.genlayer.com/tx/" + (hash || "");
 }
 
 // ============================================================================
