@@ -1387,6 +1387,7 @@ function describeTxError(err) {
 
 async function handleCreatePool(e) {
   e.preventDefault();
+  console.log("[handleCreatePool] invoked");
 
   const chain = await ensureChain();
   if (!chain.isConnected()) {
@@ -1437,6 +1438,7 @@ async function handleCreatePool(e) {
 
     await chain.waitReceipt(txHash);
     logConsensus("[CHAIN] Pool created and escrow locked on-chain.");
+    console.log(`[handleCreatePool] success tx=${txHash}`);
     showToast("Bounty pool created and escrow locked on-chain.", "success",
       { url: explorerTxUrl(txHash), label: "View tx" });
 

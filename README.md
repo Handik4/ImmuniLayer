@@ -28,7 +28,8 @@
 10. [Test Suite](#test-suite)
 11. [Repository Structure](#repository-structure)
 12. [Running the Dashboard](#running-the-dashboard)
-13. [Maintainer & License](#maintainer--license)
+13. [Frontend Browser E2E Test](#frontend-browser-e2e-test)
+14. [Maintainer & License](#maintainer--license)
 
 ---
 
@@ -68,7 +69,7 @@ The frontend reads the address from `frontend/config.js`. It is hardcoded on pur
 | Run | Tx hash | Explorer |
 |---|---|---|
 | `python3 scripts/interact_live.py` (dedicated local key) | `0xf1b7623db1a4d5d317901e4778cf8955b794f486774c320289da74be055adc10` | https://explorer-studio-next.genlayer.com/tx/0xf1b7623db1a4d5d317901e4778cf8955b794f486774c320289da74be055adc10 |
-| `npm run e2e` in `scripts/` (ephemeral key, genlayer-js) | `0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77` | https://explorer-studio-next.genlayer.com/tx/0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77 |
+| earlier raw genlayer-js script (superseded by the browser UI test) | `0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77` | https://explorer-studio-next.genlayer.com/tx/0x8f730972faa445a2b54f1b96b40e76e9aa756adffabd6e7937c0f1341197ea77 |
 | Frontend UI (headless Chrome, Reviewer Account) | `0xa875109ae8ebbd00658a62b404e1c02a21cd6e4ebd8e3df1997c94ed9f3ea5f3` | https://explorer-studio-next.genlayer.com/tx/0xa875109ae8ebbd00658a62b404e1c02a21cd6e4ebd8e3df1997c94ed9f3ea5f3 |
 
 Each ended `MAJORITY_AGREE` / `FINISHED_WITH_RETURN`, and the pool was read back from `get_all_pools`.
@@ -86,7 +87,7 @@ Each ended `MAJORITY_AGREE` / `FINISHED_WITH_RETURN`, and the pool was read back
 
 ```bash
 cd frontend && npm run build          # syntax-checks the JS and assembles dist/ (there is no TypeScript in this project)
-cd scripts && npm install && npm run e2e   # genlayer-js: create_bounty_pool + read-back, ends with [PASS]
+cd scripts && npm install && npm run e2e   # headless-browser UI test (drives handleCreatePool), see "Frontend Browser E2E Test"
 python3 scripts/interact_live.py      # genlayer-py >= 0.19.0rc2; creates .env with a local key on first run (git-ignored), funds it via sim_fundAccount, creates a pool with fees attached
 ```
 
@@ -367,6 +368,29 @@ npm run serve          # serves on http://localhost:8080
 ```
 
 The dashboard performs **real** contract reads and writes through `genlayer-js` against the deployed contract on studio-next — pools, disclosures, verdicts, and payouts are decoded from on-chain state, not simulated.
+
+---
+
+## Frontend Browser E2E Test
+
+`scripts/e2e-browser-pool.mjs` is a real UI test: it does not call `genlayer-js` directly. It launches headless Chromium (Puppeteer), loads the actual `frontend/` app from a local static server, and exercises the Create Pool flow through the DOM so the app's own `handleCreatePool` (`frontend/app.js`) runs.
+
+What it does, step by step:
+
+1. Serves `frontend/` locally and launches headless Chromium.
+2. Injects a mock EIP-1193 wallet as `window.ethereum` (also announced via EIP-6963) on Chain ID 61997. Its `eth_sendTransaction` is signed by a funded ephemeral key in the Node process and broadcast to studio-next, so the transaction is real.
+3. Clicks **Connect Wallet**, opens the **Bounty Pools** tab and the **Create New Pool** modal.
+4. Fills the form inputs (`#newPoolName`, `#newPoolRepo`, `#newPoolDesc`, `#newPoolDeposit`, `#newPoolCritical`, `#newPoolHigh`, `#newPoolMedium`, `#newPoolLow`) and clicks the submit button, which fires the form's `submit` event into `handleCreatePool`.
+5. Asserts from browser console logs (`[handleCreatePool] invoked`, `[handleCreatePool] success tx=0x...`), the success toast and consensus log, that there are no page errors or `Contract not found` / RPC failures, and that the new pool is readable on-chain through the UI's own client.
+6. Saves screenshots to `scripts/e2e-artifacts/` (git-ignored) and exits non-zero on any failed check.
+
+```bash
+cd scripts && npm install
+npm run test:e2e:ui      # or from the repo root: npm run test:e2e:ui
+npm run e2e              # same test, via the orchestrator scripts/test_e2e_pool.mjs
+```
+
+Notes: `HEADED=1` shows the browser; if Puppeteer's Chromium isn't downloaded it falls back to a system Chrome, or set `PUPPETEER_EXECUTABLE_PATH`. studio-next rate-limits RPC calls (30/min per IP), so avoid back-to-back runs.
 
 ---
 

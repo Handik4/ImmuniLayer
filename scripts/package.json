@@ -5,9 +5,13 @@
   "type": "module",
   "description": "ImmuniLayer CLI scripts (e2e checks against GenLayer studio-next).",
   "scripts": {
-    "e2e": "node test_e2e_pool.mjs"
+    "e2e": "node test_e2e_pool.mjs",
+    "test:e2e:ui": "node e2e-browser-pool.mjs"
   },
   "dependencies": {
     "genlayer-js": "2.0.0-rc.1"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.12.0"
   }
 }
